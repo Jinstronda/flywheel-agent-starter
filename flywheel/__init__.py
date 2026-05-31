@@ -1,17 +1,18 @@
 """FLYWHEEL agent SDK. The harness builds a Ctx and calls solve(ctx) once per task.
 
 You only write agent.py. These modules give you the surface the README promises and the
-trace the grader reads:
+trace the grader reads. One surface, two backends (graded gateways / local AppWorld):
 
   ctx.instruction          the task to solve
   ctx.model(messages)      the fixed model (gemini-3.1-flash-lite) through the metered proxy
-  ctx.execute(code)        run Python against AppWorld (the `apis` object); returns output
+  ctx.mcp.call(name, args) the tool surface (the 457 AppWorld APIs, names like spotify__login)
+  ctx.retrieve(query)      your RAG hook over the API docs
   ctx.memory.read/write    persisted across tasks (wiped between tasks on the off-arm)
-  ctx.retrieve(query)      your RAG hook over the API docs (wire it to your retriever)
   ctx.reflect(note)        record a self-correction
+  ctx.execute(code)        LOCAL ONLY: run Python against AppWorld for fast iteration
   ctx.trace(type, **kw)    append a JSONL event
 
-Everything flows through here, so the trace is a faithful record of what your agent did.
+On the graded run the trusted trace comes from the gateways, so everything flows through ctx.
 """
 from flywheel.ctx import Ctx
 

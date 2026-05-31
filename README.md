@@ -25,14 +25,31 @@ Your agent is one function in `agent.py`:
 def solve(ctx):
     # ctx.instruction        the task to solve
     # ctx.model(messages, tools=None)   the fixed model, through the metered proxy
-    # ctx.execute(code)       run Python against AppWorld (the `apis` object); returns output/tracebacks
-    # ctx.memory.read()/.write(k, v)    persisted across tasks (wiped between tasks on the off-arm)
+    # ctx.mcp.call(name, args)          the tool surface; names are {app}__{api} (e.g. spotify__login)
     # ctx.retrieve(query)     your RAG hook (wire it to your retriever over the API docs)
+    # ctx.memory.read()/.write(k, v)    persisted across tasks (wiped between tasks on the off-arm)
     # ctx.reflect(note)       record a self-correction
+    # ctx.execute(code)       LOCAL ONLY: run Python against AppWorld for fast iteration
     ...
 ```
 
 We run this exact function to grade you. Build whatever you want inside it.
+
+The harness runs your repo (`flywheel.json` declares the entrypoint, default `python main.py`)
+once per task in an isolated sandbox with the environment wired up:
+
+| env | what |
+|---|---|
+| `FLYWHEEL_PROXY_URL` / `FLYWHEEL_PROXY_TOKEN` | the fixed model, OpenAI-compatible, metered |
+| `FLYWHEEL_MCP_URL` | the AppWorld MCP tool surface (the 457 APIs) |
+| `FLYWHEEL_MEMORY_URL` | the memory service (POST `/read`, `/write {key,value}`) |
+| `FLYWHEEL_TASK_INSTRUCTION` | the task to solve |
+| `FLYWHEEL_MAX_STEPS` | per-task step cap |
+
+`Ctx.from_env()` reads these. The trusted model, memory, and MCP **trace events the gate reads
+come from those gateways**, not from files you write, so act through `ctx` (not hardcoded HTTP).
+Act through `ctx.mcp.call` rather than `ctx.execute`: `ctx.execute` is a local-only convenience
+for the same in-process AppWorld, so a `ctx.mcp`-based solver runs identically locally and graded.
 
 ## Quickstart
 

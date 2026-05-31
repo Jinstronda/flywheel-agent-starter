@@ -38,7 +38,8 @@ def task_ids(n):
 
 def run_one(tid, key, memory_dir):
     env = AppWorldEnv(tid, experiment_name="run_local")
-    ctx = Ctx(env, proxy_url=PROXY_URL, key=key, memory_dir=memory_dir)
+    ctx = Ctx(instruction=env.instruction, proxy_url=PROXY_URL, key=key,
+              memory_dir=memory_dir, trace_file=os.environ.get("FLYWHEEL_TRACE_FILE"), env=env)
     try:
         solve(ctx)
     except NotImplementedError:

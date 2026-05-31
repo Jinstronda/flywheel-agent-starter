@@ -13,19 +13,25 @@ or it didn't.
 - `supervisor` — who you act for (profile, account passwords) and how you finish (`complete_task`).
 - `api_docs` — the discovery surface (app/API descriptions and full docs).
 
-## How you act: the `apis` object + execute
+## How you act: the MCP tool surface (graded) and `execute` (local)
 
-You don't call HTTP. You write Python that calls the `apis` object, and run it with
-`ctx.execute(code)` (locally that's `world.execute(code)`). It returns a string: stdout, the
-last expression's repr, or a traceback. **State persists across calls within a task** (logins,
-created records), but Python *variables do not unless you keep them in one snippet or reprint
-them*. `print()` what you want to read back.
+On the graded run you act through **MCP tools**: `ctx.mcp.call(name, args)`, where names are
+`{app}__{api}` (e.g. `spotify__login`, `supervisor__complete_task`). That call is what the gate
+counts, and it reaches the 457 APIs over the MCP gateway.
 
 ```python
-out = ctx.execute("print(apis.api_docs.show_app_descriptions())")
+r = ctx.mcp.call("api_docs__show_app_descriptions", {})
 ```
 
-Call shape is always `apis.<app>.<method>(...)`.
+Locally there is also `ctx.execute(code)` (the same in-process AppWorld, `apis.<app>.<method>(...)`)
+for fast iteration -- it returns stdout / a repr / a traceback. **State persists across calls
+within a task** (logins, created records), but Python *variables do not unless you keep them in
+one snippet or reprint them*. Build your solver against `ctx.mcp` so it runs identically when
+graded; reach for `ctx.execute` only to poke at AppWorld while developing.
+
+```python
+out = ctx.execute("print(apis.api_docs.show_app_descriptions())")  # local only
+```
 
 ## Discovering APIs (do this, don't guess names)
 
