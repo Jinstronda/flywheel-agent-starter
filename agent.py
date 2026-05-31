@@ -67,7 +67,8 @@ def solve(ctx):
 
     # 6) FINISH  -- you MUST submit through complete_task. The oracle ONLY sees submitted
     #    answers, so a right answer you never submit scores 0.
-    #    ctx.mcp.call("complete_task", {"answer": ...})
+    #    ctx.mcp.call("complete_task", {"answer": ...}) for question tasks
+    #    ctx.mcp.call("complete_task", {}) for action tasks
 
     # 7) REMEMBER  -- persist what worked (a login recipe, a solved-task procedure) for the rest
     #    of the stream. This is what makes the memory gap real.

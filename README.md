@@ -43,6 +43,7 @@ once per task in an isolated sandbox with the environment wired up:
 | `FLYWHEEL_PROXY_URL` / `FLYWHEEL_PROXY_TOKEN` | the fixed model, OpenAI-compatible, metered |
 | `FLYWHEEL_MCP_URL` | the AppWorld MCP surface: search_apis, api_doc, call_api, complete_task |
 | `FLYWHEEL_MEMORY_URL` | the memory service (POST `/read`, `/write {key,value}`) |
+| `FLYWHEEL_TASK_ID` | current task id |
 | `FLYWHEEL_TASK_INSTRUCTION` | the task to solve |
 | `FLYWHEEL_MAX_STEPS` | per-task step cap |
 

@@ -1,9 +1,2 @@
-# FLYWHEEL starter deps. The SDK and the AppWorld substrate. Pinned so the install is
-# reproducible on Python 3.11 and 3.13 (AppWorld is pydantic v1; these pins avoid the
-# typer/click breakage). Add your own agent deps below (retriever, vector db, sdk, etc.).
-appworld==0.1.3.post1
-typer>=0.16,<0.17
-click>=8.1,<8.5
-mcp
-
-# --- your agent deps go here ---
+# Graded runtime deps only. The SDK itself uses the Python standard library.
+# Add your agent runtime deps below.

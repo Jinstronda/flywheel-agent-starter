@@ -181,7 +181,7 @@ class _LocalMCP:
 
     def _complete(self, answer):
         import json
-        if answer is None:
+        if answer is None or str(answer).strip() in ("", "<<not_given>>"):
             code = "import json\napis.supervisor.complete_task()\nprint('__MARKER__' + json.dumps({'ok': True}))"
         else:
             code = (

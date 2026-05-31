@@ -11,8 +11,7 @@ pydantic v1; the `typer`/`click` pins avoid a known break).
 python3.11 -m venv .venv
 source .venv/bin/activate
 
-pip install "appworld==0.1.3.post1" "typer>=0.16,<0.17" "click>=8.1,<8.5" "mcp"
-# or: pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
 ## 2. install AppWorld + download the data
