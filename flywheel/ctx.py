@@ -3,7 +3,7 @@ two backends, so the agent you tune locally is the agent we grade:
 
   ctx.instruction            the task to solve
   ctx.model(messages, ...)   the fixed model through the metered proxy (OpenAI-shaped dict back)
-  ctx.mcp.call(name, args)   the tool surface (the 457 AppWorld APIs, names like spotify__login)
+  ctx.mcp.call(name, args)   the AppWorld MCP meta-tool surface
   ctx.retrieve(query)        your RAG hook over the API docs
   ctx.memory.read()/.write() persisted across tasks (wiped between tasks on the off-arm)
   ctx.reflect(note)          record a self-correction / retry
@@ -78,14 +78,14 @@ class Ctx:
         return data
 
     def retrieve(self, query):
-        """Your RAG hook over the API docs. Graded run: a `search_docs` MCP call, traced as a
-        retrieval. Locally: your wired retriever if set, else the same search_docs path. You
+        """Your RAG hook over the API docs. Graded run: a `search_apis` MCP call, traced as a
+        retrieval. Locally: your wired retriever if set, else the same search_apis path. You
         cannot fit 457 API docs in context, so this is load-bearing -- index the docs
         (tools/dump_api_docs.py) and pass your retriever via Ctx(retriever=...)."""
         self.trace("retrieval", query=query)
         if self._retriever is not None:
             return self._retriever(query)
-        return self.mcp.call("search_docs", {"query": query})
+        return self.mcp.call("search_apis", {"query": query})
 
     def reflect(self, note):
         """Record a self-correction (a failed step you're about to retry differently)."""
@@ -109,41 +109,83 @@ class Ctx:
 
 class _LocalMCP:
     """Local stand-in for the graded MCP gateway, backed by in-process AppWorld so a ctx.mcp-based
-    agent runs the same locally as under grading. `search_docs` reads api_docs; every other tool is
-    `{app}__{api}` -> apis.<app>.<api>(**args). Traces a `tool` event like the gateway does."""
+    agent runs the same locally as under grading. It exposes the same four meta-tools as the real
+    gateway: search_apis, api_doc, call_api, complete_task."""
     def __init__(self, env, trace):
         self._env = env
         self._t = trace
 
     def list(self):
-        if self._env is None:
-            return []
-        out = self._env.execute(
-            "import json\n"
-            "t=[]\n"
-            "for a in apis.api_docs.show_app_descriptions():\n"
-            "  app=a['name']\n"
-            "  for d in apis.api_docs.show_api_descriptions(app_name=app):\n"
-            "    t.append(app+'__'+d['name'])\n"
-            "print(json.dumps(t))")
-        try:
-            import json
-            return [{"name": n} for n in json.loads(out.strip().splitlines()[-1])]
-        except Exception:
-            return []
+        return [
+            {"name": "search_apis"},
+            {"name": "api_doc"},
+            {"name": "call_api"},
+            {"name": "complete_task"},
+        ]
 
     def call(self, name, args=None):
         self._t("tool", name=name)
         if self._env is None:
             return {"error": "no MCP url and no local AppWorld; set FLYWHEEL_MCP_URL or APPWORLD_ROOT"}
         args = args or {}
-        if name == "search_docs":
-            q = (args.get("query") or "").replace('"', "'")
-            out = self._env.execute(f"print(apis.api_docs.show_api_descriptions(app_name={q!r}))")
-            return {"results": [out.strip()]}
-        if "__" not in name:
-            return {"error": f"tool names are app__api; got {name!r}"}
-        app, api = name.split("__", 1)
-        kw = ", ".join(f"{k}={v!r}" for k, v in args.items())
-        out = self._env.execute(f"print(apis.{app}.{api}({kw}))")
-        return {"result": out.strip()}
+        if name == "search_apis":
+            return self._search(args.get("query", ""))
+        if name == "api_doc":
+            return self._api_doc(args.get("app", ""), args.get("api", ""))
+        if name == "call_api":
+            return self._call_api(args.get("app", ""), args.get("api", ""), args.get("arguments") or {})
+        if name == "complete_task":
+            return self._complete(args.get("answer"))
+        return {"error": f"unknown tool {name}"}
+
+    def _run_json(self, code):
+        import json
+        marker = "__FW_LOCAL__"
+        out = self._env.execute(code.replace("__MARKER__", marker))
+        for line in reversed((out or "").splitlines()):
+            if line.startswith(marker):
+                return json.loads(line[len(marker):])
+        return {"error": "no_result", "raw": (out or "")[-500:]}
+
+    def _search(self, query):
+        import json
+        code = (
+            "import json\n"
+            f"q = {json.dumps(str(query))}.lower()\n"
+            "hits = []\n"
+            "for app in apis.api_docs.show_app_descriptions():\n"
+            "    an = app['name']\n"
+            "    for d in apis.api_docs.show_api_descriptions(app_name=an):\n"
+            "        blob = (an + ' ' + d['name'] + ' ' + d.get('description','')).lower()\n"
+            "        if all(w in blob for w in q.split()):\n"
+            "            hits.append({'app': an, 'api': d['name'], 'description': d.get('description','')})\n"
+            "print('__MARKER__' + json.dumps({'results': hits[:20]}))")
+        return self._run_json(code)
+
+    def _api_doc(self, app, api):
+        import json
+        code = (
+            "import json\n"
+            f"doc = apis.api_docs.show_api_doc(app_name={json.dumps(str(app))}, api_name={json.dumps(str(api))})\n"
+            "print('__MARKER__' + json.dumps({'doc': doc}, default=str))")
+        return self._run_json(code)
+
+    def _call_api(self, app, api, arguments):
+        import json
+        code = (
+            "import json\n"
+            f"args = json.loads({json.dumps(json.dumps(arguments or {}))})\n"
+            f"res = getattr(getattr(apis, {json.dumps(str(app))}), {json.dumps(str(api))})(**args)\n"
+            "print('__MARKER__' + json.dumps({'result': res}, default=str))")
+        return self._run_json(code)
+
+    def _complete(self, answer):
+        import json
+        if answer is None:
+            code = "import json\napis.supervisor.complete_task()\nprint('__MARKER__' + json.dumps({'ok': True}))"
+        else:
+            code = (
+                "import json\n"
+                f"apis.supervisor.complete_task(answer={json.dumps(str(answer))})\n"
+                "print('__MARKER__' + json.dumps({'ok': True}))")
+        return self._run_json(code)

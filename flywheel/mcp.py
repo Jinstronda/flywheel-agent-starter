@@ -1,9 +1,16 @@
-"""The MCP tool surface. On the graded run the 457 AppWorld APIs reach your agent as MCP tools
-over JSON-RPC at FLYWHEEL_MCP_URL (tools/list to discover, tools/call to act). Tool names are
-`{app}__{api}` (e.g. spotify__login, supervisor__complete_task). You log in in-band: read the
-supervisor credentials through the tools, then thread the access token through authed calls.
+"""The MCP tool surface. On the graded run the real AppWorld APIs reach your agent through four
+JSON-RPC tools at FLYWHEEL_MCP_URL:
 
-Every tools/call is traced as a `tool` event by the gateway, and that is what the gate counts,
+  search_apis(query)
+  api_doc(app, api)
+  call_api(app, api, arguments)
+  complete_task(answer=None)
+
+You log in in-band: use call_api on supervisor.show_account_passwords and supervisor.show_profile,
+then call_api on the target app's login API and thread the returned access_token through authed
+calls.
+
+Every tools/call is traced by the gateway, and that is what the gate counts,
 so acting through here (not hardcoded HTTP) is load-bearing.
 """
 import json

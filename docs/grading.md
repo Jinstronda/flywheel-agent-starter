@@ -36,9 +36,11 @@ model with `response_format`, verify before `complete_task`, retry on traceback)
 
 ## 4. Honest traces
 
-The grader reads your trace (the JSONL the SDK writes). It must show genuine `retrieval`,
-`execute`/tool calls, `memory_read`/`memory_write`, and `reflect` retries — matching what your
-agent actually did. Decorative calls that don't affect the outcome don't help and read as noise.
+The pass gate reads trusted events emitted by the model, MCP, and memory gateways. Candidate-written
+JSONL traces are useful for your own debugging, but they are not accepted as proof. Your graded run
+must show real `retrieval`, tool calls, `memory_read`/`memory_write`, and recovery from a failed
+step through the gateways. Decorative calls that don't affect the outcome don't help and read as
+noise.
 
 ## Submit
 

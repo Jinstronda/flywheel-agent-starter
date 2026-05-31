@@ -18,7 +18,7 @@ Read docs/appworld.md first (especially THE LOGIN FLOW) and docs/proxy.md. Then 
 ctx surface (see flywheel/ and the README):
   ctx.instruction          the task
   ctx.model(messages, tools=None, response_format=None)   the fixed model via the proxy
-  ctx.mcp.call(name, args) the tool surface; names are {app}__{api} (e.g. spotify__login)
+  ctx.mcp.call(name, args) the tool surface: search_apis, api_doc, call_api, complete_task
   ctx.retrieve(query)      your RAG hook (wire flywheel/ctx.py:retrieve to a real retriever)
   ctx.memory.read() / .write(k, v)   persisted across tasks (wiped between tasks on the off-arm)
   ctx.reflect(note)        record a self-correction
@@ -44,25 +44,30 @@ def solve(ctx):
     #    output both work through the proxy (docs/proxy.md).
     #    plan = ctx.model([{"role": "system", "content": ...}, {"role": "user", "content": instruction}])
 
-    # 4) ACT through ctx.mcp.call. Tool names are {app}__{api}. State (logins, data) persists
+    # 4) ACT through ctx.mcp.call. State (logins, data) persists
     #    across calls within a task. THE LOGIN FLOW (docs/appworld.md) is the #1 gotcha:
     #       pw = {p['account_name']: p['password']
-    #             for p in ctx.mcp.call("supervisor__show_account_passwords", {})}
-    #       me = ctx.mcp.call("supervisor__show_profile", {})
-    #       tok = ctx.mcp.call("spotify__login", {"username": me['email'],
-    #                                             "password": pw['spotify']})['access_token']
+    #             for p in ctx.mcp.call("call_api", {"app": "supervisor",
+    #                                                "api": "show_account_passwords",
+    #                                                "arguments": {}})["result"]}
+    #       me = ctx.mcp.call("call_api", {"app": "supervisor", "api": "show_profile",
+    #                                      "arguments": {}})["result"]
+    #       tok = ctx.mcp.call("call_api", {"app": "spotify", "api": "login",
+    #                                      "arguments": {"username": me["email"],
+    #                                                    "password": pw["spotify"]}})["result"]["access_token"]
     #    then pass access_token=tok to authenticated calls. List APIs are paginated.
-    #    r = ctx.mcp.call("spotify__show_song_library", {"access_token": tok, "page_index": 0})
+    #    r = ctx.mcp.call("call_api", {"app": "spotify", "api": "show_song_library",
+    #                                  "arguments": {"access_token": tok, "page_index": 0}})
 
     # 5) SELF-CORRECT  -- when a call returns an error, read it, fix the exact cause (wrong tool
     #    name -> ctx.retrieve; missing access_token -> add it; wrong field -> inspect the result),
-    #    ctx.reflect(note), and retry. Don't repeat a failing call.
-    #    if r and r.get("error"): ctx.reflect("..."); r = ctx.mcp.call("...fixed...")
+    #    ctx.reflect(note), and retry through ctx.mcp. Don't repeat a failing call. The grade gate
+    #    trusts gateway events, so the recovery has to happen through the real tools.
+    #    if r and r.get("error"): ctx.reflect("..."); r = ctx.mcp.call("call_api", fixed)
 
-    # 6) FINISH  -- you MUST submit through the completion tool (in AppWorld,
-    #    supervisor__complete_task). The oracle ONLY sees submitted answers, so a right answer
-    #    you never submit scores 0. answer= for question tasks; no arg for action tasks.
-    #    ctx.mcp.call("supervisor__complete_task", {"answer": ...})
+    # 6) FINISH  -- you MUST submit through complete_task. The oracle ONLY sees submitted
+    #    answers, so a right answer you never submit scores 0.
+    #    ctx.mcp.call("complete_task", {"answer": ...})
 
     # 7) REMEMBER  -- persist what worked (a login recipe, a solved-task procedure) for the rest
     #    of the stream. This is what makes the memory gap real.

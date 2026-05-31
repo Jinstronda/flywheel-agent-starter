@@ -25,7 +25,7 @@ Your agent is one function in `agent.py`:
 def solve(ctx):
     # ctx.instruction        the task to solve
     # ctx.model(messages, tools=None)   the fixed model, through the metered proxy
-    # ctx.mcp.call(name, args)          the tool surface; names are {app}__{api} (e.g. spotify__login)
+    # ctx.mcp.call(name, args)          search_apis/api_doc/call_api/complete_task
     # ctx.retrieve(query)     your RAG hook (wire it to your retriever over the API docs)
     # ctx.memory.read()/.write(k, v)    persisted across tasks (wiped between tasks on the off-arm)
     # ctx.reflect(note)       record a self-correction
@@ -41,7 +41,7 @@ once per task in an isolated sandbox with the environment wired up:
 | env | what |
 |---|---|
 | `FLYWHEEL_PROXY_URL` / `FLYWHEEL_PROXY_TOKEN` | the fixed model, OpenAI-compatible, metered |
-| `FLYWHEEL_MCP_URL` | the AppWorld MCP tool surface (the 457 APIs) |
+| `FLYWHEEL_MCP_URL` | the AppWorld MCP surface: search_apis, api_doc, call_api, complete_task |
 | `FLYWHEEL_MEMORY_URL` | the memory service (POST `/read`, `/write {key,value}`) |
 | `FLYWHEEL_TASK_INSTRUCTION` | the task to solve |
 | `FLYWHEEL_MAX_STEPS` | per-task step cap |
@@ -56,6 +56,7 @@ for the same in-process AppWorld, so a `ctx.mcp`-based solver runs identically l
 ```bash
 # 1. set up (see SETUP.md): a Python 3.11 venv with AppWorld + its data, and your key
 cp .env.example .env && $EDITOR .env        # put your FLYWHEEL_KEY in
+set -a; source .env; set +a                 # export it for the tools below
 
 # 2. see the environment work end-to-end (login + docs + complete a task)
 python examples/quickstart.py
@@ -102,7 +103,7 @@ You submit your **full system**, not just a repo: the tools your model can call,
 - **Beat the baseline.** A naive agent on your same model sets the floor. Clear it by a margin.
 - **A real memory gap.** memory-on must pull ahead of memory-wiped.
 - **Reliability.** We re-run held-out tasks k times — all must pass.
-- **Honest traces.** Genuine retrieval, tool calls, memory reads/writes, and retries.
+- **Honest traces.** Genuine retrieval, tool calls, memory reads/writes, and error recovery through the trusted gateways.
 
 Grading is AppWorld's own deterministic state oracle. No LLM judges you. The held-out split is one you never see.
 

@@ -5,7 +5,7 @@ trace the grader reads. One surface, two backends (graded gateways / local AppWo
 
   ctx.instruction          the task to solve
   ctx.model(messages)      the fixed model (gemini-3.1-flash-lite) through the metered proxy
-  ctx.mcp.call(name, args) the tool surface (the 457 AppWorld APIs, names like spotify__login)
+  ctx.mcp.call(name, args) the AppWorld MCP meta-tool surface
   ctx.retrieve(query)      your RAG hook over the API docs
   ctx.memory.read/write    persisted across tasks (wiped between tasks on the off-arm)
   ctx.reflect(note)        record a self-correction

@@ -15,12 +15,14 @@ or it didn't.
 
 ## How you act: the MCP tool surface (graded) and `execute` (local)
 
-On the graded run you act through **MCP tools**: `ctx.mcp.call(name, args)`, where names are
-`{app}__{api}` (e.g. `spotify__login`, `supervisor__complete_task`). That call is what the gate
-counts, and it reaches the 457 APIs over the MCP gateway.
+On the graded run you act through **MCP tools**: `ctx.mcp.call(name, args)`. The gateway exposes
+four tools that reach the real AppWorld `apis` object:
 
 ```python
-r = ctx.mcp.call("api_docs__show_app_descriptions", {})
+ctx.mcp.call("search_apis", {"query": "spotify song library"})
+ctx.mcp.call("api_doc", {"app": "spotify", "api": "login"})
+ctx.mcp.call("call_api", {"app": "spotify", "api": "login", "arguments": {"username": "...", "password": "..."}})
+ctx.mcp.call("complete_task", {"answer": "..."})
 ```
 
 Locally there is also `ctx.execute(code)` (the same in-process AppWorld, `apis.<app>.<method>(...)`)
@@ -71,8 +73,8 @@ The oracle ONLY sees what you submit. A correct answer printed to stdout but nev
 scores **0**. Always finish:
 
 ```python
-apis.supervisor.complete_task(answer=<value>)   # QUESTION tasks: a concise answer
-apis.supervisor.complete_task()                 # ACTION tasks: no answer arg
+ctx.mcp.call("complete_task", {"answer": <value>})   # QUESTION tasks: a concise answer
+ctx.mcp.call("complete_task", {})                    # ACTION tasks: no answer arg
 ```
 
 `answer` should be concise and EXACT: a number, a name, yes/no, or a comma-separated list of
