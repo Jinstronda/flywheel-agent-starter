@@ -6,21 +6,27 @@ two backends, so the agent you tune locally is the agent we grade:
   ctx.mcp.call(name, args)   the AppWorld MCP meta-tool surface
   ctx.retrieve(query)        your RAG hook over the API docs (search_apis)
   ctx.run_code(code)         run Python with `apis` in scope (loops, pagination, bulk writes)
-  ctx.memory.read()/.write() persisted across the task stream; reuse is lift over baseline
+  ctx.memory.read()/.write() a starter store under FLYWHEEL_MEMORY_DIR; bundle your own here
   ctx.reflect(note)          record a self-correction / retry
   ctx.execute(code)          LOCAL ONLY alias of run_code for fast iteration
 
-GRADED run (the sandbox sets FLYWHEEL_MCP_URL): tools come from FLYWHEEL_MCP_URL, memory from
-FLYWHEEL_MEMORY_URL, the model from FLYWHEEL_PROXY_URL with FLYWHEEL_PROXY_TOKEN. The trusted
+OPEN CONTRACT: only the MODEL (the proxy) and the WORLD (AppWorld via the MCP gateway + oracle)
+are fixed. Memory is YOURS -- FLYWHEEL_MEMORY_DIR is a persistent dir that survives across tasks;
+bring and bundle your own store there (a vector DB, sqlite, gbrain, a skill library). Bring your
+own RAG, MCP servers, framework too; the sandbox has no internet, so bundle it to run offline.
+
+GRADED run (the sandbox sets FLYWHEEL_MCP_URL): tools come from FLYWHEEL_MCP_URL, the model from
+FLYWHEEL_PROXY_URL with FLYWHEEL_PROXY_TOKEN, your memory from FLYWHEEL_MEMORY_DIR. The trusted
 trace the gate reads is the gateways' own, so everything you do has to flow through ctx.
 
-LOCAL run (run_local.py / quickstart.py): no gateways, so AppWorld runs in-process, memory is a
-JSON file, and the model uses FLYWHEEL_URL + FLYWHEEL_KEY. ctx.mcp, ctx.run_code, and ctx.execute
-all reach the same in-process AppWorld so a ctx.mcp-based agent is exercised the same way it will
-be graded.
+LOCAL run (run_local.py / quickstart.py): no gateways, so AppWorld runs in-process and the model
+uses FLYWHEEL_URL + FLYWHEEL_KEY. ctx.mcp, ctx.run_code, and ctx.execute all reach the same
+in-process AppWorld so a ctx.mcp-based agent is exercised the same way it will be graded.
 
 Your grade is your task-goal-completion minus a fixed baseline (a naive agent on the same model
 that we already ran once). You run once; every bit of engineering is lift above that baseline.
+After each run you get per-task feedback (logs, tool calls + errors, oracle pass/fail + why);
+practice is unlimited, so read the failures and iterate.
 """
 import os
 
@@ -32,7 +38,7 @@ from flywheel.trace import Trace
 
 class Ctx:
     def __init__(self, instruction, proxy_url, key, memory_dir, trace_file=None,
-                 max_steps=50, mcp_url=None, memory_url=None, env=None, retriever=None):
+                 max_steps=50, mcp_url=None, env=None, retriever=None):
         self.instruction = instruction
         self._proxy = (proxy_url or "").rstrip("/")
         self._key = key
@@ -41,14 +47,14 @@ class Ctx:
         self.max_steps = max_steps
         self._retriever = retriever
         self.trace = Trace(trace_file)
-        self.memory = Memory(memory_dir, self.trace, url=memory_url)
+        self.memory = Memory(memory_dir, self.trace)
         self.mcp = MCP(mcp_url, self.trace) if mcp_url else _LocalMCP(env, self.trace)
 
     @classmethod
     def from_env(cls, task_id=None, experiment_name="flywheel"):
         """Build a Ctx from the environment contract. The graded sandbox sets FLYWHEEL_MCP_URL /
-        FLYWHEEL_MEMORY_URL / FLYWHEEL_PROXY_URL / FLYWHEEL_PROXY_TOKEN; locally you set
-        FLYWHEEL_KEY / FLYWHEEL_URL / APPWORLD_ROOT (see .env.example)."""
+        FLYWHEEL_PROXY_URL / FLYWHEEL_PROXY_TOKEN and a persistent FLYWHEEL_MEMORY_DIR (your own
+        store); locally you set FLYWHEEL_KEY / FLYWHEEL_URL / APPWORLD_ROOT (see .env.example)."""
         mcp_url = os.environ.get("FLYWHEEL_MCP_URL")
         trace_file = os.environ.get("FLYWHEEL_TRACE_FILE")
         memory_dir = os.environ.get("FLYWHEEL_MEMORY_DIR", "./.memory")
@@ -59,7 +65,7 @@ class Ctx:
                 proxy_url=os.environ.get("FLYWHEEL_PROXY_URL", ""),
                 key=os.environ.get("FLYWHEEL_PROXY_TOKEN", ""),
                 memory_dir=memory_dir, trace_file=trace_file, max_steps=max_steps,
-                mcp_url=mcp_url, memory_url=os.environ.get("FLYWHEEL_MEMORY_URL"))
+                mcp_url=mcp_url)
         from flywheel.appworld_env import AppWorldEnv  # local-only import
         os.environ.setdefault("APPWORLD_ROOT", os.environ.get("APPWORLD_ROOT", "./aw"))
         tid = task_id or os.environ.get("FLYWHEEL_TASK_ID")

@@ -1,7 +1,7 @@
 """Entrypoint the sandbox grader invokes once per task. Ctx.from_env() reads the environment:
-the graded sandbox sets FLYWHEEL_MCP_URL / FLYWHEEL_MEMORY_URL / FLYWHEEL_PROXY_URL /
-FLYWHEEL_PROXY_TOKEN (gateways); locally you set FLYWHEEL_KEY / FLYWHEEL_URL / APPWORLD_ROOT. Then
-it runs your solve(ctx). Don't change the contract; put your work in agent.py.
+the graded sandbox sets FLYWHEEL_MCP_URL / FLYWHEEL_PROXY_URL / FLYWHEEL_PROXY_TOKEN (gateways)
+and a persistent FLYWHEEL_MEMORY_DIR (your own store); locally you set FLYWHEEL_KEY / FLYWHEEL_URL
+/ APPWORLD_ROOT. Then it runs your solve(ctx). Don't change the contract; put your work in agent.py.
 """
 import os
 import sys

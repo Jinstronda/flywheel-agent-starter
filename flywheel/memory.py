@@ -1,31 +1,30 @@
-"""Cross-task memory. The grader owns it: on the graded run it is the harness memory service
-(FLYWHEEL_MEMORY_URL, POST /read and /write) and the memory_read/memory_write events the gate
-trusts come from THAT service, not from a file you write. Locally there is no service, so it
-falls back to a JSON file under the memory dir with the same read/write shape.
+"""Cross-task memory -- and it is YOURS. FLYWHEEL_MEMORY_DIR is a persistent directory that
+survives across the whole task stream, on the graded run and locally alike. The harness neither
+provides a memory service nor wipes this dir: what crosses tasks is whatever you write here.
 
-It survives across the whole task stream on the memory-ON run and is wiped between tasks on the
-memory-OFF run. The gap between the two arms is part of your grade, so a memory you never read is
-worth nothing: store what generalizes (procedures, login patterns, solved-task recipes), recall
-it on later tasks.
+This class is a starter JSON key/value store under that dir, with a read/write shape, so you have
+something working on day one. The real move (OPEN CONTRACT) is to BUNDLE your own store in the
+same dir: a sqlite DB, a vector index, a Voyager-style skill library, or gbrain (Postgres + an MCP
+server you ship in your image; it runs locally, no internet). Example:
+
+    import chromadb                                       # bundled in your image
+    db = chromadb.PersistentClient(path=ctx.memory.dir)   # lives in FLYWHEEL_MEMORY_DIR
+    db.get_or_create_collection("skills").add(ids=[tid], documents=[recipe])
+
+A memory you never read is worth nothing: store what generalizes (procedures, login patterns,
+solved-task recipes) and recall it on later tasks. Reuse is lift above the baseline.
 """
 import json
 import os
-import urllib.request
 
 
 class Memory:
     def __init__(self, dir, trace, url=None):
-        self.url = (url or "").rstrip("/")
+        # url kept for back-compat with older callers; ignored -- memory is a local dir now.
         self.dir = dir
         self.path = os.path.join(dir, "memory.json")
         self._t = trace
         os.makedirs(dir, exist_ok=True)
-
-    def _post(self, path, body=None):
-        req = urllib.request.Request(self.url + path, data=json.dumps(body or {}).encode(),
-                                     headers={"content-type": "application/json"})
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read())
 
     def _load(self):
         try:
@@ -35,14 +34,10 @@ class Memory:
             return {}
 
     def read(self):
-        if self.url:
-            return self._post("/read")
         self._t("memory_read")
         return self._load()
 
     def write(self, key, value):
-        if self.url:
-            return self._post("/write", {"key": key, "value": value})
         self._t("memory_write", key=key)
         d = self._load()
         d[key] = value

@@ -8,12 +8,14 @@ trace the grader reads. One surface, two backends (graded gateways / local AppWo
   ctx.mcp.call(name, args) the AppWorld MCP meta-tool surface
   ctx.retrieve(query)      your RAG hook over the API docs (search_apis)
   ctx.run_code(code)       Python with `apis` in scope: loops, pagination, bulk writes
-  ctx.memory.read/write    persisted across the task stream; reuse is lift over baseline
+  ctx.memory.read/write    a starter store under FLYWHEEL_MEMORY_DIR; bundle your own here
   ctx.reflect(note)        record a self-correction
   ctx.execute(code)        LOCAL ONLY alias of run_code for fast iteration
   ctx.trace(type, **kw)    append a JSONL event
 
-On the graded run the trusted trace comes from the gateways, so everything flows through ctx.
+OPEN CONTRACT: only the model (the proxy) and the world (AppWorld) are fixed. Bring and bundle
+your own memory, RAG, MCP servers, and framework -- it runs offline in your container. On the
+graded run the trusted trace comes from the gateways, so everything flows through ctx.
 """
 from flywheel.ctx import Ctx
 

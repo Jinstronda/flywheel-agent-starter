@@ -1,5 +1,11 @@
 """Your agent. This is the only file you have to write.
 
+OPEN CONTRACT: only the MODEL (gemini-3-flash-preview, via the proxy -- the only LLM you may call)
+and the WORLD (AppWorld via the MCP gateway + oracle) are fixed. EVERYTHING else is yours to build
+and BUNDLE in this repo: your memory (gbrain, a vector DB, sqlite, a skill library), your RAG, your
+MCP servers, any framework. It all runs locally in your container; the sandbox has no internet, so
+package your stack to run offline. This SDK is a starting surface, not a cage -- replace it.
+
 The harness calls solve(ctx) once per task. A naive single-shot agent on this model scores ~0.
 Your grade is your task-goal-completion minus a fixed baseline (a naive agent on the same model
 that we already ran once). You run ONCE; every capability you build is lift above that baseline:
@@ -7,12 +13,15 @@ that we already ran once). You run ONCE; every capability you build is lift abov
   - RAG        retrieve the right API docs per task (you can't fit 457 in context)
   - tools      act through the MCP tool surface (ctx.mcp), not hardcoded calls
   - run_code   loop/paginate over `apis` in one turn -- the hard tasks are bulk, multi-write
-  - memory     carry what you learn across tasks; reuse raises the score (memory is REQUIRED)
+  - memory     YOUR store under FLYWHEEL_MEMORY_DIR, carried across tasks; reuse is lift (REQUIRED)
   - self-loop  read tool errors, reflect, retry the fixed call
 
-The tasks are HARD on purpose (multi-write, aggregation); even a SOTA agent clears about half.
-FLYWHEEL_MAX_STEPS is 50, so a bulk task has room -- but burning a turn per item still runs out;
-that's what run_code is for.
+The tasks are HARD on purpose (multi-write, aggregation); even a SOTA agent clears about half on a
+single attempt. The brutal ones need schema inspection, constraint parsing, and multi-app
+fact-finding, not a generic ReAct loop. After each practice/grade run you get per-task feedback
+(your logs, the tool calls + errors, the oracle's pass/fail + why); practice is unlimited, so read
+why each task failed and fix it. FLYWHEEL_MAX_STEPS is 50, so a bulk task has room -- but burning a
+turn per item still runs out; that's what run_code is for.
 
 Act through ctx.mcp.call(name, args): on the graded run that's the MCP gateway, and it is what
 the gate counts. (Locally, ctx.run_code / ctx.execute run the same AppWorld in-process for fast
@@ -88,7 +97,8 @@ def solve(ctx):
     #    ctx.mcp.call("complete_task", {}) for action tasks
 
     # 7) REMEMBER  -- persist what worked (a login recipe, a solved-task procedure) for the rest
-    #    of the stream. Reuse on later tasks is what turns memory into lift.
+    #    of the stream. ctx.memory is a starter JSON store under FLYWHEEL_MEMORY_DIR; bundle your
+    #    own (a vector DB / sqlite / gbrain) in that dir. Reuse on later tasks is lift.
     #    ctx.memory.write("spotify_login", "...")
 
     raise NotImplementedError("implement your agent here -- this is the hiring signal")

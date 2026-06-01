@@ -15,13 +15,16 @@ work via `run_code`.
 You have to clear the baseline **by a margin**. The tasks are hard on purpose (multi-write,
 aggregation): a SOTA agent clears about half, a naive one almost none.
 
-## 2. Memory (required, and it lifts your score)
+## 2. Memory (yours, required, and it lifts your score)
 
-Memory is required. A real memory persists across the task stream and reuses what generalizes —
-login recipes, solved-task procedures, API docs you already paid to discover — so later tasks
-cost less and pass more. That reuse is lift. A `memory.json` nobody reads gives none. It is not a
-separate pass/fail gate, but you describe it in your writeup and defend it in the call, and a
-strong one moves your number.
+Memory is required, and it's **yours**. `FLYWHEEL_MEMORY_DIR` is a persistent directory that
+survives across the whole task stream; we never provide a memory service and never wipe it. Put
+your own store there — the starter ships a JSON store, but bundle a vector index, sqlite, a
+Voyager-style skill library, or gbrain (Postgres + an MCP server in your image) if you want. A
+real memory reuses what generalizes — login recipes, solved-task procedures, API docs you already
+paid to discover — so later tasks cost less and pass more. That reuse is lift. A `memory.json`
+nobody reads gives none. It is not a separate pass/fail gate, but you describe it in your writeup
+and defend it in the call, and a strong one moves your number.
 
 Self-check it locally — run with memory persisting, then with it wiped, and watch your own TGC:
 
@@ -44,11 +47,17 @@ model with `response_format`, verify before `complete_task`, retry on traceback)
 The oracle also reports `collateral_damage`: state you mutated that the task didn't ask for. Any
 collateral fails the run, so the multi-write tasks reward precision, not spraying writes.
 
-The pass gate reads trusted events emitted by the model, MCP, and memory gateways. Candidate-written
-JSONL traces are useful for your own debugging, but they are not accepted as proof. Your graded run
-must show real `retrieval`, tool calls (`call_api`/`run_code`), `memory_read`/`memory_write`, and
-recovery from a failed step through the gateways. Decorative calls that don't affect the outcome
-don't help and read as noise.
+The pass gate reads trusted events emitted by the model and MCP gateways. Candidate-written JSONL
+traces are useful for your own debugging, but they are not accepted as proof. Your graded run must
+show real `retrieval`, tool calls (`call_api`/`run_code`), and recovery from a failed step through
+the gateways. Decorative calls that don't affect the outcome don't help and read as noise.
+
+## Per-trial feedback
+
+Every practice and grade run returns, per task: your agent's stdout/stderr, the gateway trace (the
+tool calls + `run_code` snippets + the errors they threw), and the oracle's pass/fail with the
+exact failing check, plus timing and tokens. Practice is unlimited and exists for this loop — read
+why each task failed and fix it. The API response and the SPA both carry these per-task logs.
 
 ## Submit
 
