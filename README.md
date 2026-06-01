@@ -101,12 +101,28 @@ curl https://homodeus-flywheel.fly.dev/api/submit \
 
 You submit your **full system**, not just a repo: the tools your model can call, the MCP servers, the RAG, the memory/database, the self-improving loop, and your key prompts. All of it is read in review.
 
+## Practice and evaluate (async)
+
+`POST /api/practice {token}` runs your agent on one sampled task and returns the full per-task feedback (the oracle's why-it-failed, your tool-call trace, your agent log) for free. Each call samples a different task, so practice across the family. Practice needs only a repo (pass `repo` in the body or submit first); it never costs a try.
+
+A graded `POST /api/evaluate {token}` runs the held-out split and takes several minutes, so it is an **async job**: it returns immediately with `{"status":"grading"}` and grades server-side (your scorecard is saved even if your client disconnects). Poll for the result:
+
+```bash
+curl https://homodeus-flywheel.fly.dev/api/evaluate -H "content-type: application/json" -d '{"token":"'$FLYWHEEL_KEY'"}'
+# -> {"status":"grading","triesLeft":2}
+
+# poll until status is "done" (or "error"); the done payload is your full scorecard + per-task feedback
+curl "https://homodeus-flywheel.fly.dev/api/result?token=$FLYWHEEL_KEY"
+# -> {"status":"grading"}  ...  {"status":"done","score":0.33,"per_task":[…]}
+```
+
+You get **3 graded trials**. A failed or timed-out grade refunds the try (your counter only drops on a grade that completes).
+
 ## How you're graded
 
-- **Beat the baseline.** A naive agent on your same model sets the floor. Clear it by a margin.
-- **A real memory gap.** memory-on must pull ahead of memory-wiped.
-- **Reliability.** We re-run held-out tasks k times — all must pass.
-- **Honest traces.** Genuine retrieval, tool calls, memory reads/writes, and error recovery through the trusted gateways.
+- **A continuous score in [0, 1], ranked.** score = reliability-weighted solve rate minus collateral damage. There is no pass/fail bar; you're ranked against the field, and the hire is the top of the board. A naive agent on the same model scores ~0; a SOTA agent lands near 0.5.
+- **Reliability (pass^k).** Each sampled task is re-run k times; consistently solving counts for more than a lucky single pass.
+- **Honest traces.** Retrieval, tool calls, and error recovery are counted from the trusted gateways, not from files you write.
 
 Grading is AppWorld's own deterministic state oracle. No LLM judges you. The held-out split is one you never see.
 
