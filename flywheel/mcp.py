@@ -1,9 +1,10 @@
-"""The MCP tool surface. On the graded run the real AppWorld APIs reach your agent through four
+"""The MCP tool surface. On the graded run the real AppWorld APIs reach your agent through five
 JSON-RPC tools at FLYWHEEL_MCP_URL:
 
   search_apis(query)
   api_doc(app, api)
   call_api(app, api, arguments)
+  run_code(code)              run python with `apis` in scope (loops/pagination/bulk); see ctx.run_code
   complete_task(answer=None)
 
 You log in in-band: use call_api on supervisor.show_account_passwords and supervisor.show_profile,

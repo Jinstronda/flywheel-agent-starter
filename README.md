@@ -25,11 +25,12 @@ Your agent is one function in `agent.py`:
 def solve(ctx):
     # ctx.instruction        the task to solve
     # ctx.model(messages, tools=None)   the fixed model, through the metered proxy
-    # ctx.mcp.call(name, args)          search_apis/api_doc/call_api/complete_task
+    # ctx.mcp.call(name, args)          search_apis/api_doc/call_api/run_code/complete_task
+    # ctx.run_code(code)      run python with `apis` in scope (loops/pagination/bulk); graded + local
     # ctx.retrieve(query)     your RAG hook (wire it to your retriever over the API docs)
     # ctx.memory.read()/.write(k, v)    persisted across tasks (wiped between tasks on the off-arm)
     # ctx.reflect(note)       record a self-correction
-    # ctx.execute(code)       LOCAL ONLY: run Python against AppWorld for fast iteration
+    # ctx.execute(code)       alias of ctx.run_code
     ...
 ```
 
@@ -41,7 +42,7 @@ once per task in an isolated sandbox with the environment wired up:
 | env | what |
 |---|---|
 | `FLYWHEEL_PROXY_URL` / `FLYWHEEL_PROXY_TOKEN` | the fixed model, OpenAI-compatible, metered |
-| `FLYWHEEL_MCP_URL` | the AppWorld MCP surface: search_apis, api_doc, call_api, complete_task |
+| `FLYWHEEL_MCP_URL` | the AppWorld MCP surface: search_apis, api_doc, call_api, run_code, complete_task |
 | `FLYWHEEL_MEMORY_URL` | the memory service (POST `/read`, `/write {key,value}`) |
 | `FLYWHEEL_TASK_ID` | current task id |
 | `FLYWHEEL_TASK_INSTRUCTION` | the task to solve |
@@ -49,8 +50,8 @@ once per task in an isolated sandbox with the environment wired up:
 
 `Ctx.from_env()` reads these. The trusted model, memory, and MCP **trace events the gate reads
 come from those gateways**, not from files you write, so act through `ctx` (not hardcoded HTTP).
-Act through `ctx.mcp.call` rather than `ctx.execute`: `ctx.execute` is a local-only convenience
-for the same in-process AppWorld, so a `ctx.mcp`-based solver runs identically locally and graded.
+Act through `ctx` (not hardcoded HTTP). `ctx.run_code` and `ctx.mcp.call` both work identically
+locally and graded, so the agent you tune locally is the agent we grade.
 
 ## Quickstart
 

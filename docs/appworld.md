@@ -13,26 +13,28 @@ or it didn't.
 - `supervisor` — who you act for (profile, account passwords) and how you finish (`complete_task`).
 - `api_docs` — the discovery surface (app/API descriptions and full docs).
 
-## How you act: the MCP tool surface (graded) and `execute` (local)
+## How you act: the 5 MCP tools
 
 On the graded run you act through **MCP tools**: `ctx.mcp.call(name, args)`. The gateway exposes
-four tools that reach the real AppWorld `apis` object:
+five tools that reach the real AppWorld `apis` object:
 
 ```python
 ctx.mcp.call("search_apis", {"query": "spotify song library"})
 ctx.mcp.call("api_doc", {"app": "spotify", "api": "login"})
 ctx.mcp.call("call_api", {"app": "spotify", "api": "login", "arguments": {"username": "...", "password": "..."}})
+ctx.mcp.call("run_code", {"code": "ids=[s['song_id'] for s in apis.spotify.show_song_library(access_token=tok)]; print(len(ids))"})
 ctx.mcp.call("complete_task", {"answer": "..."})
 ```
 
-Locally there is also `ctx.execute(code)` (the same in-process AppWorld, `apis.<app>.<method>(...)`)
-for fast iteration -- it returns stdout / a repr / a traceback. **State persists across calls
-within a task** (logins, created records), but Python *variables do not unless you keep them in
-one snippet or reprint them*. Build your solver against `ctx.mcp` so it runs identically when
-graded; reach for `ctx.execute` only to poke at AppWorld while developing.
+`run_code` is the lever on heavy tasks: a "follow ALL / like ALL" task is ONE paginated loop in
+`run_code`, not 40 `call_api` turns. `ctx.run_code(code)` is the convenience wrapper, and it works
+**both graded and local** (graded routes to the run_code tool, local runs in-process), returning
+stdout (a traceback string on error). **State persists across calls within a task** (logins,
+created records), but Python *variables do not unless you keep them in one snippet, reprint them,
+or stash them in memory*. `ctx.execute` is an alias of `ctx.run_code`.
 
 ```python
-out = ctx.execute("print(apis.api_docs.show_app_descriptions())")  # local only
+out = ctx.run_code("print(apis.api_docs.show_app_descriptions())")  # graded + local
 ```
 
 ## Discovering APIs (do this, don't guess names)

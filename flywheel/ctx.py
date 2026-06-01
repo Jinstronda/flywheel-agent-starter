@@ -91,13 +91,25 @@ class Ctx:
         """Record a self-correction (a failed step you're about to retry differently)."""
         self.trace("reflect", note=note)
 
-    def execute(self, code):
-        """LOCAL ONLY: run Python against AppWorld (the `apis` object). On the graded run there is
-        no in-process AppWorld -- act through ctx.mcp.call instead."""
-        if self._env is None:
-            raise RuntimeError("ctx.execute is local-only; on the graded run act through ctx.mcp.call")
+    def run_code(self, code):
+        """Run a Python snippet with the AppWorld `apis` object in scope (loops, pagination, bulk
+        writes). The 5th MCP tool, and the lever on heavy tasks: a 40-item task is ONE run_code,
+        not 40 call_api turns. Returns the snippet's stdout (a traceback string on error). Works on
+        both backends: the graded run routes to the run_code gateway tool, local runs in-process,
+        so the agent you tune locally is the agent we grade. State (logins, records) persists across
+        calls within a task; keep Python variables yourself by re-deriving or stashing in memory."""
         self.trace("execute")
-        return self._env.execute(code)
+        if self._env is not None:  # local AppWorld
+            return self._env.execute(code)
+        res = self.mcp.call("run_code", {"code": code})  # graded gateway
+        if isinstance(res, dict):
+            return res.get("stdout") or res.get("error") or ""
+        return res
+
+    def execute(self, code):
+        """Run Python against AppWorld (`apis.<app>.<method>(...)`). Alias of ctx.run_code; works on
+        the graded run too (routes to the run_code tool)."""
+        return self.run_code(code)
 
     def evaluate(self):
         """Deterministic oracle for the current task (local self-testing only; the real grader
