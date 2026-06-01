@@ -4,6 +4,5 @@ data/
 __pycache__/
 *.pyc
 .memory/
-api_docs_dump/
 experiments/
 .runs/

@@ -54,3 +54,5 @@ python tools/dump_api_docs.py    # writes ./api_docs_dump/ (the docs you'll RAG 
 
 If `quickstart.py` prints `logged in: True` and an `[evaluate] success = ...` line, you're set.
 Then build `agent.py` and iterate with `python run_local.py --n 5`. See the `docs/`.
+
+> **Ship your RAG corpus.** The graded sandbox is offline, so `python tools/dump_api_docs.py` won't run there. Generate `api_docs_dump/` locally and **commit it** (it is no longer gitignored) so `git add .` includes it and your retriever has the 457 docs in the sandbox.
