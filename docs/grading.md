@@ -36,11 +36,12 @@ model with `response_format`, verify before `complete_task`, retry on traceback)
 
 ## 4. Honest traces
 
-The pass gate reads trusted events emitted by the model, MCP, and memory gateways. Candidate-written
+The pass gate reads trusted events emitted by the model and MCP gateways. Candidate-written
 JSONL traces are useful for your own debugging, but they are not accepted as proof. Your graded run
-must show real `retrieval`, tool calls, `memory_read`/`memory_write`, and recovery from a failed
-step through the gateways. Decorative calls that don't affect the outcome don't help and read as
-noise.
+must show real `retrieval`, tool calls, and recovery from a failed step through those gateways.
+Memory is different: it is the persistent `FLYWHEEL_MEMORY_DIR`, and the on-arm / off-arm score gap
+(memory carried across tasks vs wiped between them) is what proves your memory is real, not a trace
+event. Decorative calls that don't affect the outcome don't help and read as noise.
 
 ## Submit
 

@@ -18,7 +18,7 @@ Read docs/appworld.md first (especially THE LOGIN FLOW) and docs/proxy.md. Then 
 ctx surface (see flywheel/ and the README):
   ctx.instruction          the task
   ctx.model(messages, tools=None, response_format=None)   the fixed model via the proxy
-  ctx.mcp.call(name, args) the tool surface: search_apis, api_doc, call_api, complete_task
+  ctx.mcp.call(name, args) the tool surface: search_apis, api_doc, call_api, run_code, complete_task
   ctx.retrieve(query)      your RAG hook (wire flywheel/ctx.py:retrieve to a real retriever)
   ctx.memory.read() / .write(k, v)   persisted across tasks (wiped between tasks on the off-arm)
   ctx.reflect(note)        record a self-correction
@@ -39,7 +39,7 @@ def solve(ctx):
     #    flywheel/ctx.py:retrieve to it. 457 APIs do not fit in context.
     #    docs = ctx.retrieve(instruction)
 
-    # 3) PLAN  -- the fixed model (gemini-3.1-flash-lite). It's weak, so give it the retrieved
+    # 3) PLAN  -- the fixed model (gemini-3-flash-preview). It's weak, so give it the retrieved
     #    docs, the supervisor identity, and a tight protocol. Function-calling and structured
     #    output both work through the proxy (docs/proxy.md).
     #    plan = ctx.model([{"role": "system", "content": ...}, {"role": "user", "content": instruction}])

@@ -12,6 +12,7 @@ Task ids come from substrate/splits/practice.txt if present, else load_task_ids(
 Set APPWORLD_ROOT (see .env.example); FLYWHEEL_KEY must be set for ctx.model to work.
 """
 import argparse
+import json
 import os
 import shutil
 import sys
@@ -44,12 +45,12 @@ def run_one(tid, key, memory_dir):
         solve(ctx)
     except NotImplementedError:
         env.close()
-        return None  # skeleton not implemented yet
+        return None, None  # skeleton not implemented yet
     except Exception:
         traceback.print_exc()
-    passed = env.evaluate()
+    verdict = env.world.evaluate().to_dict()
     env.close()
-    return passed
+    return bool(verdict.get("success")), verdict
 
 
 def main():
@@ -73,12 +74,14 @@ def main():
         if a.memory_off:
             shutil.rmtree(mem_root, ignore_errors=True)
         os.makedirs(mem_root, exist_ok=True)
-        ok = run_one(tid, key, mem_root)
+        ok, verdict = run_one(tid, key, mem_root)
         if ok is None:
             print("agent.py is still the skeleton (NotImplementedError). Implement solve(ctx), then rerun.")
             return
         results.append((tid, ok))
         print(f"  {tid:14s} {'PASS' if ok else 'FAIL'}")
+        if not ok:  # oracle verdict so the loop is learnable: what failed and why
+            print(f"    oracle: {json.dumps(verdict, default=str)}")
 
     passed = sum(1 for _, ok in results if ok)
     print(f"\nTGC: {passed}/{len(results)}  ({'memory off' if a.memory_off else 'memory on'})")

@@ -1,7 +1,8 @@
-"""Cross-task memory. The grader owns it: on the graded run it is the harness memory service
-(FLYWHEEL_MEMORY_URL, POST /read and /write) and the memory_read/memory_write events the gate
-trusts come from THAT service, not from a file you write. Locally there is no service, so it
-falls back to a JSON file under the memory dir with the same read/write shape.
+"""Cross-task memory. On the graded run memory is FLYWHEEL_MEMORY_DIR, a persistent directory that
+survives across tasks. Whatever you write under it (this JSON file, or your own sqlite / vector DB
+bundled in your image) IS your memory. There is no memory service; FLYWHEEL_MEMORY_URL is not set
+on the graded run, so the url path below stays dormant and the JSON-file path is what runs. The
+optional url is kept only for a self-hosted store you stand up yourself.
 
 It survives across the whole task stream on the memory-ON run and is wiped between tasks on the
 memory-OFF run. The gap between the two arms is part of your grade, so a memory you never read is

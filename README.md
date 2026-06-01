@@ -4,7 +4,7 @@ This is everything you need to build your agent for the HomoDeus founding-engine
 
 ## The challenge
 
-You build one agent that works through a stream of real tasks in **AppWorld** (9 simulated apps — Spotify, Venmo, Amazon, Gmail, Phone, Files… — exposed as **457 APIs**) and **gets better as it goes**. It runs on a **fixed weak model**, `gemini-3.1-flash-lite`, behind our metered, OpenAI-compatible proxy. The model is the same for everyone, so the only thing that separates you from the baseline is how well you engineer the loop.
+You build one agent that works through a stream of real tasks in **AppWorld** (9 simulated apps — Spotify, Venmo, Amazon, Gmail, Phone, Files… — exposed as **457 APIs**) and **gets better as it goes**. It runs on a **fixed weak model**, `gemini-3-flash-preview`, behind our metered, OpenAI-compatible proxy. The model is the same for everyone, so the only thing that separates you from the baseline is how well you engineer the loop.
 
 A naive agent on this model scores ~0 on real tasks. A properly engineered one clears it. You have to be the second kind.
 
@@ -43,15 +43,16 @@ once per task in an isolated sandbox with the environment wired up:
 |---|---|
 | `FLYWHEEL_PROXY_URL` / `FLYWHEEL_PROXY_TOKEN` | the fixed model, OpenAI-compatible, metered |
 | `FLYWHEEL_MCP_URL` | the AppWorld MCP surface: search_apis, api_doc, call_api, run_code, complete_task |
-| `FLYWHEEL_MEMORY_URL` | the memory service (POST `/read`, `/write {key,value}`) |
+| `FLYWHEEL_MEMORY_DIR` | a persistent directory that survives across tasks; whatever you write there (a JSON file, sqlite, a vector DB you bundle) IS your memory. There is no memory service. |
 | `FLYWHEEL_TASK_ID` | current task id |
 | `FLYWHEEL_TASK_INSTRUCTION` | the task to solve |
-| `FLYWHEEL_MAX_STEPS` | per-task step cap |
+| `FLYWHEEL_MAX_STEPS` | per-task step cap (50 on the graded run) |
 
-`Ctx.from_env()` reads these. The trusted model, memory, and MCP **trace events the gate reads
-come from those gateways**, not from files you write, so act through `ctx` (not hardcoded HTTP).
-Act through `ctx` (not hardcoded HTTP). `ctx.run_code` and `ctx.mcp.call` both work identically
-locally and graded, so the agent you tune locally is the agent we grade.
+`Ctx.from_env()` reads these. The trusted model and MCP **trace events the gate reads come from
+those gateways**, not from files you write, so act through `ctx` (not hardcoded HTTP). That is
+about trace evidence, not memory storage: memory is the persistent `FLYWHEEL_MEMORY_DIR` and what
+you write there is your memory across tasks. `ctx.run_code` and `ctx.mcp.call` both work
+identically locally and graded, so the agent you tune locally is the agent we grade.
 
 ## Quickstart
 

@@ -5,17 +5,21 @@ two backends, so the agent you tune locally is the agent we grade:
   ctx.model(messages, ...)   the fixed model through the metered proxy (OpenAI-shaped dict back)
   ctx.mcp.call(name, args)   the AppWorld MCP meta-tool surface
   ctx.retrieve(query)        your RAG hook over the API docs
-  ctx.memory.read()/.write() persisted across tasks (wiped between tasks on the off-arm)
+  ctx.memory.read()/.write() persisted across tasks via FLYWHEEL_MEMORY_DIR, a directory that
+                             survives the whole task stream (wiped between tasks only on the off-arm)
   ctx.reflect(note)          record a self-correction / retry
   ctx.execute(code)          LOCAL ONLY: run Python against AppWorld for fast iteration
 
-GRADED run (the sandbox sets FLYWHEEL_MCP_URL): tools come from FLYWHEEL_MCP_URL, memory from
-FLYWHEEL_MEMORY_URL, the model from FLYWHEEL_PROXY_URL with FLYWHEEL_PROXY_TOKEN. The trusted
-trace the gate reads is the gateways' own, so everything you do has to flow through ctx.
+GRADED run (the sandbox sets FLYWHEEL_MCP_URL): tools come from FLYWHEEL_MCP_URL, the model from
+FLYWHEEL_PROXY_URL with FLYWHEEL_PROXY_TOKEN. Memory is FLYWHEEL_MEMORY_DIR: a persistent directory
+that survives across tasks, and whatever you write there (a JSON file, sqlite, a vector DB you bundle
+in your image) IS your memory. There is no memory service. The trusted TRACE the gate reads is the
+gateways' own, so the model + tool calls it counts as evidence have to flow through ctx; that is about
+trace evidence, not where you store memory.
 
-LOCAL run (run_local.py / quickstart.py): no gateways, so AppWorld runs in-process, memory is a
-JSON file, and the model uses FLYWHEEL_URL + FLYWHEEL_KEY. ctx.mcp and ctx.execute both reach the
-same in-process AppWorld so a ctx.mcp-based agent is exercised the same way it will be graded.
+LOCAL run (run_local.py / quickstart.py): no gateways, so AppWorld runs in-process and the model uses
+FLYWHEEL_URL + FLYWHEEL_KEY. Memory is the same directory contract. ctx.mcp and ctx.execute both reach
+the same in-process AppWorld so a ctx.mcp-based agent is exercised the same way it will be graded.
 """
 import os
 
@@ -41,12 +45,12 @@ class Ctx:
     @classmethod
     def from_env(cls, task_id=None, experiment_name="flywheel"):
         """Build a Ctx from the environment contract. The graded sandbox sets FLYWHEEL_MCP_URL /
-        FLYWHEEL_MEMORY_URL / FLYWHEEL_PROXY_URL / FLYWHEEL_PROXY_TOKEN; locally you set
-        FLYWHEEL_KEY / FLYWHEEL_URL / APPWORLD_ROOT (see .env.example)."""
+        FLYWHEEL_PROXY_URL / FLYWHEEL_PROXY_TOKEN and a persistent FLYWHEEL_MEMORY_DIR; locally you
+        set FLYWHEEL_KEY / FLYWHEEL_URL / APPWORLD_ROOT (see .env.example)."""
         mcp_url = os.environ.get("FLYWHEEL_MCP_URL")
         trace_file = os.environ.get("FLYWHEEL_TRACE_FILE")
         memory_dir = os.environ.get("FLYWHEEL_MEMORY_DIR", "./.memory")
-        max_steps = int(os.environ.get("FLYWHEEL_MAX_STEPS", "20"))
+        max_steps = int(os.environ.get("FLYWHEEL_MAX_STEPS", "50"))
         if mcp_url:  # graded run: gateways, no AppWorld in-process
             return cls(
                 instruction=os.environ.get("FLYWHEEL_TASK_INSTRUCTION", ""),
@@ -121,8 +125,8 @@ class Ctx:
 
 class _LocalMCP:
     """Local stand-in for the graded MCP gateway, backed by in-process AppWorld so a ctx.mcp-based
-    agent runs the same locally as under grading. It exposes the same four meta-tools as the real
-    gateway: search_apis, api_doc, call_api, complete_task."""
+    agent runs the same locally as under grading. It exposes the same five meta-tools as the real
+    gateway: search_apis, api_doc, call_api, run_code, complete_task."""
     def __init__(self, env, trace):
         self._env = env
         self._t = trace
@@ -132,6 +136,7 @@ class _LocalMCP:
             {"name": "search_apis"},
             {"name": "api_doc"},
             {"name": "call_api"},
+            {"name": "run_code"},
             {"name": "complete_task"},
         ]
 
@@ -146,6 +151,8 @@ class _LocalMCP:
             return self._api_doc(args.get("app", ""), args.get("api", ""))
         if name == "call_api":
             return self._call_api(args.get("app", ""), args.get("api", ""), args.get("arguments") or {})
+        if name == "run_code":
+            return {"stdout": self._env.execute(args.get("code", ""))}
         if name == "complete_task":
             return self._complete(args.get("answer"))
         return {"error": f"unknown tool {name}"}
