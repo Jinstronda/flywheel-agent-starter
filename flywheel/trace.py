@@ -1,6 +1,8 @@
-"""Trace sink. Every capability the grader checks for (retrieval, tool/execute, model,
-memory_read/write, reflect) lands here as one JSONL line. The grader reads this file, so an
-honest trace is a faithful record of your run. When no trace file is set, events are dropped.
+"""Local trace sink for debugging.
+
+The graded gate reads trusted gateway events from the model, memory, and MCP services. This
+file is still useful while developing locally, but writing here never satisfies the pass gate.
+When no trace file is set, events are dropped.
 """
 import json
 

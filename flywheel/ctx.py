@@ -4,18 +4,23 @@ two backends, so the agent you tune locally is the agent we grade:
   ctx.instruction            the task to solve
   ctx.model(messages, ...)   the fixed model through the metered proxy (OpenAI-shaped dict back)
   ctx.mcp.call(name, args)   the AppWorld MCP meta-tool surface
-  ctx.retrieve(query)        your RAG hook over the API docs
-  ctx.memory.read()/.write() persisted across tasks (wiped between tasks on the off-arm)
+  ctx.retrieve(query)        your RAG hook over the API docs (search_apis)
+  ctx.run_code(code)         run Python with `apis` in scope (loops, pagination, bulk writes)
+  ctx.memory.read()/.write() persisted across the task stream; reuse is lift over baseline
   ctx.reflect(note)          record a self-correction / retry
-  ctx.execute(code)          LOCAL ONLY: run Python against AppWorld for fast iteration
+  ctx.execute(code)          LOCAL ONLY alias of run_code for fast iteration
 
 GRADED run (the sandbox sets FLYWHEEL_MCP_URL): tools come from FLYWHEEL_MCP_URL, memory from
 FLYWHEEL_MEMORY_URL, the model from FLYWHEEL_PROXY_URL with FLYWHEEL_PROXY_TOKEN. The trusted
 trace the gate reads is the gateways' own, so everything you do has to flow through ctx.
 
 LOCAL run (run_local.py / quickstart.py): no gateways, so AppWorld runs in-process, memory is a
-JSON file, and the model uses FLYWHEEL_URL + FLYWHEEL_KEY. ctx.mcp and ctx.execute both reach the
-same in-process AppWorld so a ctx.mcp-based agent is exercised the same way it will be graded.
+JSON file, and the model uses FLYWHEEL_URL + FLYWHEEL_KEY. ctx.mcp, ctx.run_code, and ctx.execute
+all reach the same in-process AppWorld so a ctx.mcp-based agent is exercised the same way it will
+be graded.
+
+Your grade is your task-goal-completion minus a fixed baseline (a naive agent on the same model
+that we already ran once). You run once; every bit of engineering is lift above that baseline.
 """
 import os
 
@@ -27,11 +32,12 @@ from flywheel.trace import Trace
 
 class Ctx:
     def __init__(self, instruction, proxy_url, key, memory_dir, trace_file=None,
-                 max_steps=20, mcp_url=None, memory_url=None, env=None, retriever=None):
+                 max_steps=50, mcp_url=None, memory_url=None, env=None, retriever=None):
         self.instruction = instruction
         self._proxy = (proxy_url or "").rstrip("/")
         self._key = key
         self._env = env  # local AppWorld backend, or None on the graded run
+        self._mcp_url = mcp_url
         self.max_steps = max_steps
         self._retriever = retriever
         self.trace = Trace(trace_file)
@@ -46,7 +52,7 @@ class Ctx:
         mcp_url = os.environ.get("FLYWHEEL_MCP_URL")
         trace_file = os.environ.get("FLYWHEEL_TRACE_FILE")
         memory_dir = os.environ.get("FLYWHEEL_MEMORY_DIR", "./.memory")
-        max_steps = int(os.environ.get("FLYWHEEL_MAX_STEPS", "20"))
+        max_steps = int(os.environ.get("FLYWHEEL_MAX_STEPS", "50"))
         if mcp_url:  # graded run: gateways, no AppWorld in-process
             return cls(
                 instruction=os.environ.get("FLYWHEEL_TASK_INSTRUCTION", ""),
@@ -90,12 +96,27 @@ class Ctx:
     def reflect(self, note):
         """Record a self-correction (a failed step you're about to retry differently)."""
         self.trace("reflect", note=note)
+        if self._mcp_url:
+            return self.mcp.call("reflect", {"note": note})
+        return None
+
+    def run_code(self, code):
+        """Run a Python snippet with the AppWorld `apis` object in scope and get stdout back.
+        This is for loops, pagination, and bulk writes: a 40-item task is one run_code, not 40
+        call_api turns. Graded run: a `run_code` MCP call (traced). Locally: the same in-process
+        AppWorld, so the solver runs identically when graded."""
+        if self._mcp_url:
+            return self.mcp.call("run_code", {"code": code})
+        if self._env is None:
+            raise RuntimeError("no MCP url and no local AppWorld; set FLYWHEEL_MCP_URL or APPWORLD_ROOT")
+        self.trace("tool", name="run_code")
+        return {"result": self._env.execute(code)}
 
     def execute(self, code):
-        """LOCAL ONLY: run Python against AppWorld (the `apis` object). On the graded run there is
-        no in-process AppWorld -- act through ctx.mcp.call instead."""
+        """LOCAL ONLY: run Python against AppWorld (the `apis` object), returning stdout/repr.
+        On the graded run there is no in-process AppWorld -- use ctx.run_code (or ctx.mcp.call)."""
         if self._env is None:
-            raise RuntimeError("ctx.execute is local-only; on the graded run act through ctx.mcp.call")
+            raise RuntimeError("ctx.execute is local-only; on the graded run use ctx.run_code")
         self.trace("execute")
         return self._env.execute(code)
 
@@ -109,8 +130,8 @@ class Ctx:
 
 class _LocalMCP:
     """Local stand-in for the graded MCP gateway, backed by in-process AppWorld so a ctx.mcp-based
-    agent runs the same locally as under grading. It exposes the same four meta-tools as the real
-    gateway: search_apis, api_doc, call_api, complete_task."""
+    agent runs the same locally as under grading. It exposes the same five meta-tools as the real
+    gateway: search_apis, api_doc, call_api, run_code, complete_task."""
     def __init__(self, env, trace):
         self._env = env
         self._t = trace
@@ -120,6 +141,7 @@ class _LocalMCP:
             {"name": "search_apis"},
             {"name": "api_doc"},
             {"name": "call_api"},
+            {"name": "run_code"},
             {"name": "complete_task"},
         ]
 
@@ -134,6 +156,8 @@ class _LocalMCP:
             return self._api_doc(args.get("app", ""), args.get("api", ""))
         if name == "call_api":
             return self._call_api(args.get("app", ""), args.get("api", ""), args.get("arguments") or {})
+        if name == "run_code":
+            return {"result": self._env.execute(args.get("code", ""))}
         if name == "complete_task":
             return self._complete(args.get("answer"))
         return {"error": f"unknown tool {name}"}

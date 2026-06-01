@@ -3,30 +3,35 @@
 Grading is AppWorld's own deterministic state oracle (`world.evaluate()['success']`). No LLM
 judges you. The held-out split is one you never see. Four things decide it.
 
-## 1. Beat the baseline
+## 1. Lift over the baseline
 
-A naive agent on your same model sets the floor: one model ping, one retrieval, submit — no
-memory, no self-correction, no tool recovery. It clears the easy tasks and fails everything that
-needs a retry or a recalled fact. You have to clear it **by a margin**. Same model for everyone,
-so this is pure engineering: discovery, the login flow, pagination, self-correction.
+Your grade is `your_TGC - baseline_TGC`. The baseline is a naive agent on your same model — one
+model ping, one retrieval, submit, no memory, no self-correction, no tool recovery — that **we
+already ran once** and stored. You never touch it. You run **once**, and everything you build
+(RAG, `run_code` loops, memory, retry) shows up as lift above that floor. Same model for everyone,
+so the lift is pure engineering: discovery, the login flow, pagination, self-correction, bulk
+work via `run_code`.
 
-## 2. A real memory gap
+You have to clear the baseline **by a margin**. The tasks are hard on purpose (multi-write,
+aggregation): a SOTA agent clears about half, a naive one almost none.
 
-We run your agent twice: with memory **on** (one store persists across the whole task stream)
-and with memory **wiped between tasks**. The on-arm must pull ahead. A `memory.json` nobody
-reads scores a zero gap and fails this. Store what generalizes (login recipes, solved-task
-procedures) and recall it on later tasks.
+## 2. Memory (required, and it lifts your score)
 
-Self-check it locally:
+Memory is required. A real memory persists across the task stream and reuses what generalizes —
+login recipes, solved-task procedures, API docs you already paid to discover — so later tasks
+cost less and pass more. That reuse is lift. A `memory.json` nobody reads gives none. It is not a
+separate pass/fail gate, but you describe it in your writeup and defend it in the call, and a
+strong one moves your number.
+
+Self-check it locally — run with memory persisting, then with it wiped, and watch your own TGC:
 
 ```bash
-python run_local.py --n 8                 # memory ON  (carries across tasks)
-python run_local.py --n 8 --memory-off    # memory OFF (wiped between tasks)
+python run_local.py --n 8                 # memory carries across tasks
+python run_local.py --n 8 --memory-off    # memory wiped between tasks (sanity check)
 ```
 
-If the two TGCs are equal, your memory isn't doing anything yet. Note: real AppWorld dev tasks
-are independent, so the honest local gap from pure skill-reuse can be small — design memory that
-actually changes a later task's outcome.
+If the two TGCs are equal, your memory isn't doing anything yet. Real AppWorld dev tasks are
+independent, so design memory that actually changes a later task's outcome.
 
 ## 3. Reliability
 
@@ -34,13 +39,16 @@ We re-run held-out tasks **k times** with memory frozen; all k must pass. A solu
 once out of three is not a solution. Make the loop deterministic where you can (constrain the
 model with `response_format`, verify before `complete_task`, retry on traceback).
 
-## 4. Honest traces
+## 4. No collateral, honest traces
+
+The oracle also reports `collateral_damage`: state you mutated that the task didn't ask for. Any
+collateral fails the run, so the multi-write tasks reward precision, not spraying writes.
 
 The pass gate reads trusted events emitted by the model, MCP, and memory gateways. Candidate-written
 JSONL traces are useful for your own debugging, but they are not accepted as proof. Your graded run
-must show real `retrieval`, tool calls, `memory_read`/`memory_write`, and recovery from a failed
-step through the gateways. Decorative calls that don't affect the outcome don't help and read as
-noise.
+must show real `retrieval`, tool calls (`call_api`/`run_code`), `memory_read`/`memory_write`, and
+recovery from a failed step through the gateways. Decorative calls that don't affect the outcome
+don't help and read as noise.
 
 ## Submit
 

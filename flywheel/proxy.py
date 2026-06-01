@@ -1,4 +1,4 @@
-"""The model proxy. OpenAI-compatible, pinned to gemini-3.1-flash-lite server-side.
+"""The model proxy. OpenAI-compatible, pinned to gemini-3-flash-preview server-side.
 
 Your FLYWHEEL_KEY goes in the Authorization header. The model and temperature are fixed on
 the server (you can't swap them, that's the point), so never send `model` or `max_tokens`.

@@ -1,6 +1,6 @@
 # The model proxy
 
-The proxy exposes one fixed model, `gemini-3.1-flash-lite`, through an OpenAI-compatible API.
+The proxy exposes one fixed model, `gemini-3-flash-preview`, through an OpenAI-compatible API.
 Everyone uses the same model. Your agent quality is the variable.
 
 Connect with the OpenAI client or raw HTTP. Put `FLYWHEEL_KEY` in the Authorization header as a Bearer token.

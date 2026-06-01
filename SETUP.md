@@ -2,7 +2,21 @@
 
 A Python venv with AppWorld + its data, and your key. ~10 minutes, mostly the data download.
 
-## 1. venv + deps
+## 1. Docker
+
+Docker is optional for the starter's in-process local loop, but it is the closest match to the
+grader sandbox. On macOS:
+
+```bash
+brew install docker docker-buildx colima
+colima start --cpu 4 --memory 8 --disk 80
+docker info
+```
+
+Docker Desktop works too. On Linux, install Docker Engine from your distro package manager, start
+the daemon, and verify `docker info`.
+
+## 2. venv + deps
 
 Python 3.11 is the reference. It also installs cleanly on 3.13 with the pins below (AppWorld is
 pydantic v1; the `typer`/`click` pins avoid a known break).
@@ -14,7 +28,7 @@ source .venv/bin/activate
 pip install -r requirements-dev.txt
 ```
 
-## 2. install AppWorld + download the data
+## 3. install AppWorld + download the data
 
 ```bash
 appworld install                       # unpacks AppWorld's encrypted code
@@ -23,7 +37,7 @@ appworld download data --root ./aw     # downloads the task data + DBs into ./aw
 
 `./aw` is your `APPWORLD_ROOT`. The download is a few hundred MB and only happens once.
 
-## 3. your key
+## 4. your key
 
 ```bash
 cp .env.example .env
@@ -44,10 +58,11 @@ These tools read `.env` themselves only if you `export` them or use a loader; th
 set -a; source .env; set +a
 ```
 
-## 4. verify
+## 5. verify
 
 ```bash
-appworld verify                  # checks the AppWorld install + data
+appworld verify tests            # checks the AppWorld install
+appworld verify tasks            # checks the downloaded task data
 python examples/quickstart.py    # logs in, reads a doc, pings the model, completes a task, evaluates
 python tools/dump_api_docs.py    # writes ./api_docs_dump/ (the docs you'll RAG over)
 ```

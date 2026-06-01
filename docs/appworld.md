@@ -16,24 +16,35 @@ or it didn't.
 ## How you act: the MCP tool surface (graded) and `execute` (local)
 
 On the graded run you act through **MCP tools**: `ctx.mcp.call(name, args)`. The gateway exposes
-four tools that reach the real AppWorld `apis` object:
+five tools that reach the real AppWorld `apis` object:
 
 ```python
 ctx.mcp.call("search_apis", {"query": "spotify song library"})
 ctx.mcp.call("api_doc", {"app": "spotify", "api": "login"})
 ctx.mcp.call("call_api", {"app": "spotify", "api": "login", "arguments": {"username": "...", "password": "..."}})
+ctx.mcp.call("run_code", {"code": "print(len(apis.spotify.show_song_library(access_token=tok)))"})
 ctx.mcp.call("complete_task", {"answer": "..."})
 ```
 
-Locally there is also `ctx.execute(code)` (the same in-process AppWorld, `apis.<app>.<method>(...)`)
-for fast iteration -- it returns stdout / a repr / a traceback. **State persists across calls
-within a task** (logins, created records), but Python *variables do not unless you keep them in
-one snippet or reprint them*. Build your solver against `ctx.mcp` so it runs identically when
-graded; reach for `ctx.execute` only to poke at AppWorld while developing.
+`run_code` runs a Python snippet with `apis` in scope and returns stdout. Use `call_api` for one
+precise call; reach for `run_code` when the task is **bulk** -- aggregating, paginating, or writing
+many records. A 40-item task is one `run_code` loop, not 40 `call_api` turns, and that is what
+makes the hard tasks fit inside the step budget. `ctx.run_code(code)` is the convenience wrapper.
 
 ```python
-out = ctx.execute("print(apis.api_docs.show_app_descriptions())")  # local only
+ctx.mcp.call("run_code", {"code":
+    "ids, page = [], 0\n"
+    "while True:\n"
+    "    rows = apis.spotify.show_song_library(access_token=tok, page_index=page)\n"
+    "    if not rows: break\n"
+    "    ids += [r['song_id'] for r in rows]; page += 1\n"
+    "print(len(set(ids)))"})
 ```
+
+**State persists across calls within a task** (logins, created records, and variables you set in
+an earlier `run_code` or `call_api`), so a token from a login call is usable in a later `run_code`.
+Locally `ctx.execute(code)` is the same in-process path for poking at AppWorld while developing.
+Build your solver against `ctx.mcp` / `ctx.run_code` so it runs identically when graded.
 
 ## Discovering APIs (do this, don't guess names)
 

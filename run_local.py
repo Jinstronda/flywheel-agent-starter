@@ -1,10 +1,11 @@
 """Run YOUR solve(ctx) on N real AppWorld dev tasks locally and grade each on AppWorld's own
 deterministic oracle. This is the loop you tune against before you submit.
 
-  python run_local.py --n 5                 # 5 dev tasks, memory persists across them (the on-arm)
-  python run_local.py --n 5 --memory-off    # wipe memory between tasks (the off-arm)
+  python run_local.py --n 5                 # 5 dev tasks, memory persists across them
+  python run_local.py --n 5 --memory-off    # wipe memory between tasks (sanity check)
 
-Run both and compare TGC: the gap IS your memory grade. If --memory-off matches --n with the
+Your real grade is your TGC minus a fixed baseline (a naive agent we already ran). This runner is
+how you raise your TGC before you submit. Run both modes and compare: if --memory-off matches the
 same score, your memory isn't doing anything yet. Per task it prints pass/fail; at the end, the
 TGC (task goal completion = tasks passed / tasks run).
 
@@ -56,7 +57,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=5)
     ap.add_argument("--memory-off", action="store_true",
-                    help="wipe memory between tasks (the off-arm; self-check your memory gap)")
+                    help="wipe memory between tasks (sanity check that your memory adds lift)")
     a = ap.parse_args()
 
     key = os.environ.get("FLYWHEEL_KEY", "")
