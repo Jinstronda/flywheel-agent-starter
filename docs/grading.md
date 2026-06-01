@@ -1,63 +1,77 @@
 # How you're graded
 
 Grading is AppWorld's own deterministic state oracle (`world.evaluate()['success']`). No LLM
-judges you. The held-out split is one you never see. Four things decide it.
+judges you. The held-out split is one you never see. You get **one continuous score in `[0,1]`**
+and you are **ranked against the other candidates** on a leaderboard. The hire is top of the
+board, not "cleared a bar".
 
-## 1. Lift over the baseline
+## 1. The score
 
-Your grade is `your_TGC - baseline_TGC`. The baseline is a naive agent on your same model — one
-model ping, one retrieval, submit, no memory, no self-correction, no tool recovery — that **we
-already ran once** and stored. You never touch it. You run **once**, and everything you build
-(RAG, `run_code` loops, memory, retry) shows up as lift above that floor. Same model for everyone,
-so the lift is pure engineering: discovery, the login flow, pagination, self-correction, bulk
-work via `run_code`.
+```
+score = reliability-weighted solve rate − collateral penalty
+```
 
-You have to clear the baseline **by a margin**. The tasks are hard on purpose (multi-write,
-aggregation): a SOTA agent clears about half, a naive one almost none.
+Each hard task is run **k frozen times** and contributes `passes/k`, so solving a task 2 of 3
+times is 0.67. One number that rewards both **solving** the hard task and doing it **reliably**
+(pass^k). Same model for everyone, so the whole number is your engineering: discovery, the login
+flow, pagination, self-correction, bulk work via `run_code`.
 
-## 2. Memory (yours, required, and it lifts your score)
+For context, the leaderboard shows the **naive baseline** (a generic loop on your same model —
+one model ping, one retrieval, submit, no memory, no recovery) and your **rank**. That baseline
+scores about **0.0** on the brutal pool. A SOTA agent lands near **0.5**. Your number is where you
+land between them; your rank is where you land against the others.
+
+The tasks are hard on purpose (multi-write, aggregation): a SOTA agent clears about half, a naive
+one almost none.
+
+## 2. Reliability is baked into the score
+
+We re-run held-out tasks **k times** with memory frozen, and the task's contribution is `passes/k`.
+A solution that passes once out of three contributes 0.33, not a clean pass. Make the loop
+deterministic where you can (constrain the model with `response_format`, verify before
+`complete_task`, retry on traceback) so every one of the k runs lands.
+
+## 3. Memory (yours, required, and it raises your score)
 
 Memory is required, and it's **yours**. `FLYWHEEL_MEMORY_DIR` is a persistent directory that
 survives across the whole task stream; we never provide a memory service and never wipe it. Put
 your own store there — the starter ships a JSON store, but bundle a vector index, sqlite, a
 Voyager-style skill library, or gbrain (Postgres + an MCP server in your image) if you want. A
 real memory reuses what generalizes — login recipes, solved-task procedures, API docs you already
-paid to discover — so later tasks cost less and pass more. That reuse is lift. A `memory.json`
-nobody reads gives none. It is not a separate pass/fail gate, but you describe it in your writeup
-and defend it in the call, and a strong one moves your number.
+paid to discover — so later tasks cost less and pass more. That reuse raises your solve rate, and
+so your score. A `memory.json` nobody reads gives none. You describe it in your writeup and defend
+it in the call.
 
-Self-check it locally — run with memory persisting, then with it wiped, and watch your own TGC:
+Self-check it locally — run with memory persisting, then with it wiped, and watch your own solve
+rate:
 
 ```bash
 python run_local.py --n 8                 # memory carries across tasks
 python run_local.py --n 8 --memory-off    # memory wiped between tasks (sanity check)
 ```
 
-If the two TGCs are equal, your memory isn't doing anything yet. Real AppWorld dev tasks are
-independent, so design memory that actually changes a later task's outcome.
-
-## 3. Reliability
-
-We re-run held-out tasks **k times** with memory frozen; all k must pass. A solution that passes
-once out of three is not a solution. Make the loop deterministic where you can (constrain the
-model with `response_format`, verify before `complete_task`, retry on traceback).
+If the two solve rates are equal, your memory isn't doing anything yet. Real AppWorld dev tasks
+are independent, so design memory that actually changes a later task's outcome.
 
 ## 4. No collateral, honest traces
 
 The oracle also reports `collateral_damage`: state you mutated that the task didn't ask for. Any
-collateral fails the run, so the multi-write tasks reward precision, not spraying writes.
+collateral is penalized straight off your score, so the multi-write tasks reward precision, not
+spraying writes.
 
-The pass gate reads trusted events emitted by the model and MCP gateways. Candidate-written JSONL
-traces are useful for your own debugging, but they are not accepted as proof. Your graded run must
+The score reads trusted events emitted by the model and MCP gateways. Candidate-written JSONL
+traces are useful for your own debugging, but they are not part of the score. Your graded run must
 show real `retrieval`, tool calls (`call_api`/`run_code`), and recovery from a failed step through
 the gateways. Decorative calls that don't affect the outcome don't help and read as noise.
 
-## Per-trial feedback
+## Up to 3 graded trials, with per-trial feedback
 
-Every practice and grade run returns, per task: your agent's stdout/stderr, the gateway trace (the
-tool calls + `run_code` snippets + the errors they threw), and the oracle's pass/fail with the
-exact failing check, plus timing and tokens. Practice is unlimited and exists for this loop — read
-why each task failed and fix it. The API response and the SPA both carry these per-task logs.
+You get **up to 3 graded trials**, and **after each one** full per-task feedback: your agent's
+stdout/stderr, the gateway trace (the tool calls + `run_code` snippets + the errors they threw),
+and the oracle's pass/fail with the exact failing check, plus timing and tokens. That feedback is
+there so you **improve between attempts**. Practice is **unlimited** and returns the same feedback
+— read why each task failed and fix it. The API response and the SPA both carry these per-task
+logs.
 
 ## Submit
 

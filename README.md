@@ -6,7 +6,7 @@ This is everything you need to build your agent for the HomoDeus founding-engine
 
 You build one agent that works through a stream of real tasks in **AppWorld** (9 simulated apps — Spotify, Venmo, Amazon, Gmail, Phone, Files… — exposed as **457 APIs**) and **gets better as it goes**. It runs on a **fixed small model**, `gemini-3-flash-preview`, behind our metered, OpenAI-compatible proxy. The model is the same for everyone, so the only thing that separates your score from a naive agent's is how well you engineer the loop.
 
-Your grade is your task-goal-completion minus a **fixed baseline** (a naive agent on the same model that we already ran once). You run **once**; every bit of engineering you add is lift above that baseline. The tasks are **hard on purpose** — multi-write and aggregation — so even a SOTA agent clears about half on a single attempt. A naive agent clears almost none. The brutal ones need schema inspection, constraint parsing, and multi-app fact-finding (real human-curiosity engineering), not a generic ReAct loop.
+Your score is a **continuous number in `[0,1]`**, and you're **ranked against the other candidates** on a leaderboard — the hire is top of the board, not "cleared a bar". `score = reliability-weighted solve rate − collateral penalty`: each hard task is run k frozen times and contributes `passes/k`, so solving a task 2 of 3 times is 0.67. The tasks are **hard on purpose** — multi-write and aggregation — so even a SOTA agent lands near 0.5 on this pool, while a naive loop gets about 0. The brutal ones need schema inspection, constraint parsing, and multi-app fact-finding (real human-curiosity engineering), not a generic ReAct loop.
 
 ## Open contract: bring your own everything
 
@@ -110,12 +110,13 @@ You submit your **full system**, not just a repo: the tools your model can call,
 
 ## How you're graded
 
-- **Lift over the baseline.** grade = your TGC minus a fixed baseline (a naive agent on your same model, that we ran once). You run once; the lift is pure engineering.
-- **Memory is required.** A real self-improving memory reuses prior API docs, login recipes, and fixes, which raises your score. You defend it in the writeup and the call. It lifts the number; it is not a separate gate.
-- **Reliability.** We re-run held-out tasks k times — all must pass.
-- **No collateral, honest traces.** No state you weren't asked to change; genuine retrieval, tool calls, memory reads/writes, and error recovery through the trusted gateways.
+- **A continuous score in [0,1], ranked against the other candidates.** `score = reliability-weighted solve rate − collateral penalty`. No pass/fail bar; the hire is top of the board. Same model for everyone, so the whole number is your engineering.
+- **Reliability is baked in.** Each hard task is run k frozen times and contributes `passes/k`, so solving a task 2 of 3 times is 0.67 — the score rewards both solving the task and doing it reliably (pass^k).
+- **Memory is required.** A real self-improving memory reuses prior API docs, login recipes, and fixes, which raises your solve rate and your score. You defend it in the writeup and the call.
+- **No collateral, honest traces.** State you weren't asked to change is penalized off your score; genuine retrieval, tool calls, memory reads/writes, and error recovery through the trusted gateways are what move it.
+- **Up to 3 graded trials, with feedback after each** (see below), so you improve between attempts. Practice is unlimited.
 
-Grading is AppWorld's own deterministic state oracle. No LLM judges you. The held-out split is one you never see. The tasks are hard on purpose (multi-write, aggregation): a SOTA agent clears about half.
+Grading is AppWorld's own deterministic state oracle. No LLM judges you. The held-out split is one you never see. The tasks are hard on purpose (multi-write, aggregation): a SOTA agent lands near 0.5, a naive loop about 0. See `docs/grading.md`.
 
 ## Per-trial feedback (how you iterate)
 

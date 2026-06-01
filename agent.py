@@ -6,21 +6,23 @@ and BUNDLE in this repo: your memory (gbrain, a vector DB, sqlite, a skill libra
 MCP servers, any framework. It all runs locally in your container; the sandbox has no internet, so
 package your stack to run offline. This SDK is a starting surface, not a cage -- replace it.
 
-The harness calls solve(ctx) once per task. A naive single-shot agent on this model scores ~0.
-Your grade is your task-goal-completion minus a fixed baseline (a naive agent on the same model
-that we already ran once). You run ONCE; every capability you build is lift above that baseline:
+The harness calls solve(ctx) once per task. Your score is a continuous number in [0,1] --
+reliability-weighted solve rate minus a collateral penalty -- and you are RANKED against the other
+candidates. A naive loop scores ~0.0; a SOTA agent lands ~0.5 on the brutal pool. Every capability
+you build moves your number up:
 
   - RAG        retrieve the right API docs per task (you can't fit 457 in context)
   - tools      act through the MCP tool surface (ctx.mcp), not hardcoded calls
   - run_code   loop/paginate over `apis` in one turn -- the hard tasks are bulk, multi-write
-  - memory     YOUR store under FLYWHEEL_MEMORY_DIR, carried across tasks; reuse is lift (REQUIRED)
+  - memory     YOUR store under FLYWHEEL_MEMORY_DIR, carried across tasks; reuse raises your score (REQUIRED)
   - self-loop  read tool errors, reflect, retry the fixed call
 
 The tasks are HARD on purpose (multi-write, aggregation); even a SOTA agent clears about half on a
-single attempt. The brutal ones need schema inspection, constraint parsing, and multi-app
-fact-finding, not a generic ReAct loop. After each practice/grade run you get per-task feedback
-(your logs, the tool calls + errors, the oracle's pass/fail + why); practice is unlimited, so read
-why each task failed and fix it. FLYWHEEL_MAX_STEPS is 50, so a bulk task has room -- but burning a
+single attempt. Each hard task is run k frozen times and contributes passes/k, so reliability is
+in the score (pass^k). The brutal ones need schema inspection, constraint parsing, and multi-app
+fact-finding, not a generic ReAct loop. You get up to 3 graded trials, each followed by per-task
+feedback (your logs, the tool calls + errors, the oracle's pass/fail + why), so you improve between
+attempts; practice is unlimited. FLYWHEEL_MAX_STEPS is 50, so a bulk task has room -- but burning a
 turn per item still runs out; that's what run_code is for.
 
 Act through ctx.mcp.call(name, args): on the graded run that's the MCP gateway, and it is what
@@ -35,7 +37,7 @@ ctx surface (see flywheel/ and the README):
   ctx.mcp.call(name, args) the surface: search_apis, api_doc, call_api, run_code, complete_task
   ctx.retrieve(query)      your RAG hook (wire flywheel/ctx.py:retrieve to a real retriever)
   ctx.run_code(code)       python with `apis` in scope: loops, pagination, bulk writes
-  ctx.memory.read() / .write(k, v)   persisted across the task stream; reuse is lift
+  ctx.memory.read() / .write(k, v)   persisted across the task stream; reuse raises your score
   ctx.reflect(note)        record a self-correction
   ctx.trace(type, **kw)    append a JSONL event
 """
@@ -46,7 +48,7 @@ def solve(ctx):
 
     # 1) RECALL  -- pull procedures/recipes you stored on earlier tasks. Some tasks are only
     #    solvable by recalling a fact a previous task revealed. Memory persists across the task
-    #    stream, so what you store has to generalize; reuse is lift above the baseline.
+    #    stream, so what you store has to generalize; reuse raises your solve rate and your score.
     #    mem = ctx.memory.read()
 
     # 2) RETRIEVE  -- get the API docs relevant to THIS task. Dump them first with
@@ -98,7 +100,7 @@ def solve(ctx):
 
     # 7) REMEMBER  -- persist what worked (a login recipe, a solved-task procedure) for the rest
     #    of the stream. ctx.memory is a starter JSON store under FLYWHEEL_MEMORY_DIR; bundle your
-    #    own (a vector DB / sqlite / gbrain) in that dir. Reuse on later tasks is lift.
+    #    own (a vector DB / sqlite / gbrain) in that dir. Reuse on later tasks raises your score.
     #    ctx.memory.write("spotify_login", "...")
 
     raise NotImplementedError("implement your agent here -- this is the hiring signal")

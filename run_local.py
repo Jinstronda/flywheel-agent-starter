@@ -4,10 +4,10 @@ deterministic oracle. This is the loop you tune against before you submit.
   python run_local.py --n 5                 # 5 dev tasks, memory persists across them
   python run_local.py --n 5 --memory-off    # wipe memory between tasks (sanity check)
 
-Your real grade is your TGC minus a fixed baseline (a naive agent we already ran). This runner is
-how you raise your TGC before you submit. Run both modes and compare: if --memory-off matches the
-same score, your memory isn't doing anything yet. Per task it prints pass/fail; at the end, the
-TGC (task goal completion = tasks passed / tasks run).
+Your real score is reliability-weighted solve rate minus a collateral penalty, a number in [0,1],
+ranked against the other candidates. This runner is how you raise your solve rate before you submit.
+Run both modes and compare: if --memory-off matches the same score, your memory isn't doing anything
+yet. Per task it prints pass/fail; at the end, the solve rate (tasks passed / tasks run).
 
 Task ids come from substrate/splits/practice.txt if present, else load_task_ids('dev').
 Set APPWORLD_ROOT (see .env.example); FLYWHEEL_KEY must be set for ctx.model to work.

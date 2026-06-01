@@ -12,7 +12,7 @@ server you ship in your image; it runs locally, no internet). Example:
     db.get_or_create_collection("skills").add(ids=[tid], documents=[recipe])
 
 A memory you never read is worth nothing: store what generalizes (procedures, login patterns,
-solved-task recipes) and recall it on later tasks. Reuse is lift above the baseline.
+solved-task recipes) and recall it on later tasks. Reuse raises your solve rate and your score.
 """
 import json
 import os

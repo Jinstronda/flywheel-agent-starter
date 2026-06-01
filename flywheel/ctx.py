@@ -23,10 +23,11 @@ LOCAL run (run_local.py / quickstart.py): no gateways, so AppWorld runs in-proce
 uses FLYWHEEL_URL + FLYWHEEL_KEY. ctx.mcp, ctx.run_code, and ctx.execute all reach the same
 in-process AppWorld so a ctx.mcp-based agent is exercised the same way it will be graded.
 
-Your grade is your task-goal-completion minus a fixed baseline (a naive agent on the same model
-that we already ran once). You run once; every bit of engineering is lift above that baseline.
-After each run you get per-task feedback (logs, tool calls + errors, oracle pass/fail + why);
-practice is unlimited, so read the failures and iterate.
+Your score is a continuous number in [0,1] -- reliability-weighted solve rate minus a collateral
+penalty -- and you are ranked against the other candidates. A naive loop scores ~0.0; a SOTA agent
+lands ~0.5 on the brutal pool. You get up to 3 graded trials, each followed by per-task feedback
+(logs, tool calls + errors, oracle pass/fail + why), so you improve between attempts; practice is
+unlimited, so read the failures and iterate.
 """
 import os
 
