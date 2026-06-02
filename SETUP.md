@@ -47,7 +47,8 @@ set -a; source .env; set +a
 ## 4. verify
 
 ```bash
-appworld verify                  # checks the AppWorld install + data
+appworld verify tests --root ./aw    # checks the AppWorld install
+appworld verify tasks --root ./aw    # checks the downloaded task data
 python examples/quickstart.py    # logs in, reads a doc, pings the model, completes a task, evaluates
 python tools/dump_api_docs.py    # writes ./api_docs_dump/ (the docs you'll RAG over)
 ```
