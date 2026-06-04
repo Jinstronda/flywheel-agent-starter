@@ -126,6 +126,17 @@ You get **3 graded trials**. A failed or timed-out grade refunds the try (your c
 
 Grading is AppWorld's own deterministic state oracle. No LLM judges you. The held-out split is one you never see.
 
+## Why agents score 0
+
+Three real submissions scored 0. These are the reasons, and each fix is one line:
+
+1. **Never called `complete_task`.** Computing the right answer but not submitting it is 0. This is the #1 cause. No submit, no credit, always.
+2. **Wrong answer kind.** Question tasks need `apis.supervisor.complete_task(answer=...)`. Action tasks need you to change the world, then `complete_task()` with no answer. The oracle grades world state for actions, not your prose. Returning a sentence for an action scores 0.
+3. **Timeout (300s/task) from one API call per item.** Calling an API once per item across pages times out. Do the bulk in ONE `run_code` loop: paginate and batch in-process, do not spend a turn per item.
+4. **Guessed an API field name.** A wrong key (e.g. `target_user_id` when Venmo uses `receiver_id`/`sender_id`) raises a KeyError, crashes your final block, and changes nothing. Read `api_doc(app, api)` before you call.
+5. **Did not log in.** Most APIs need an access token: `pw = {p['account_name']: p['password'] for p in apis.supervisor.show_account_passwords()}`, then `tok = apis.<app>.login(username=..., password=...)['access_token']`, then thread `access_token=tok` through every authed call.
+6. **Trusted your own "looks done" check.** Verify against the actual world state. The oracle is deterministic; a reflexion self-check false-positives.
+
 ## Docs
 
 - `docs/appworld.md` — how AppWorld works: the apps, the `apis` interface, discovering APIs, **the login flow** (the #1 thing that trips people up), completing a task, the oracle.
