@@ -143,3 +143,4 @@ Three real submissions scored 0. These are the reasons, and each fix is one line
 - `docs/proxy.md` — the model proxy: the OpenAI-compatible surface, function-calling, structured output, your budget.
 - `docs/grading.md` — exactly how you're scored, and how to self-test locally.
 - `SETUP.md` — install AppWorld + its data + your venv.
+- `python tools/faq.py` — answers to the questions every candidate asks (embeddings in the offline sandbox, the login flow, practice vs evaluate…). Check it before asking us.
