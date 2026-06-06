@@ -31,12 +31,14 @@ from flywheel.trace import Trace
 
 class Ctx:
     def __init__(self, instruction, proxy_url, key, memory_dir, trace_file=None,
-                 max_steps=20, mcp_url=None, memory_url=None, env=None, retriever=None):
+                 max_steps=None, mcp_url=None, memory_url=None, env=None, retriever=None):
         self.instruction = instruction
         self._proxy = (proxy_url or "").rstrip("/")
         self._key = key
         self._env = env  # local AppWorld backend, or None on the graded run
-        self.max_steps = max_steps
+        # no step cap: the real bounds are your token budget and the per-task timeout.
+        # max_steps stays as a loop-safe finite number for `range(ctx.max_steps)` loops.
+        self.max_steps = int(max_steps if max_steps is not None else os.environ.get("FLYWHEEL_MAX_STEPS", "100000"))
         self._retriever = retriever
         self.trace = Trace(trace_file)
         self.memory = Memory(memory_dir, self.trace, url=memory_url)
@@ -50,7 +52,7 @@ class Ctx:
         mcp_url = os.environ.get("FLYWHEEL_MCP_URL")
         trace_file = os.environ.get("FLYWHEEL_TRACE_FILE")
         memory_dir = os.environ.get("FLYWHEEL_MEMORY_DIR", "./.memory")
-        max_steps = int(os.environ.get("FLYWHEEL_MAX_STEPS", "50"))
+        max_steps = int(os.environ.get("FLYWHEEL_MAX_STEPS", "100000"))
         if mcp_url:  # graded run: gateways, no AppWorld in-process
             return cls(
                 instruction=os.environ.get("FLYWHEEL_TASK_INSTRUCTION", ""),

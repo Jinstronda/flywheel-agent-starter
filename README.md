@@ -46,7 +46,7 @@ once per task in an isolated sandbox with the environment wired up:
 | `FLYWHEEL_MEMORY_DIR` | a persistent directory that survives across tasks; whatever you write there (a JSON file, sqlite, a vector DB you bundle) IS your memory. There is no memory service. |
 | `FLYWHEEL_TASK_ID` | current task id |
 | `FLYWHEEL_TASK_INSTRUCTION` | the task to solve |
-| `FLYWHEEL_MAX_STEPS` | per-task step cap (50 on the graded run) |
+| `FLYWHEEL_MAX_STEPS` | optional step cap; UNSET by default — there is no step limit. Your real bounds are your token budget and the per-task timeout |
 
 `Ctx.from_env()` reads these. The trusted model and MCP **trace events the gate reads come from
 those gateways**, not from files you write, so act through `ctx` (not hardcoded HTTP). That is
