@@ -18,10 +18,18 @@ pip install -r requirements-dev.txt
 
 ```bash
 appworld install                       # unpacks AppWorld's encrypted code
-appworld download data --root ./aw     # downloads the task data + DBs into ./aw/data
+python tools/download_data.py          # downloads the task data + DBs into ./aw/data, with progress
 ```
 
-`./aw` is your `APPWORLD_ROOT`. The download is a few hundred MB and only happens once.
+`./aw` is your `APPWORLD_ROOT` (`tools/download_data.py` reads it; default `./aw`). The bundle is
+~33 MB and only happens once.
+
+> The upstream `appworld download data --root ./aw` works too, but it buffers the whole bundle with
+> no timeout and no progress, so on a slow link, a VPN, or a proxy it can sit silent on
+> "Downloading data. This will take around 15 seconds." and never finish. `tools/download_data.py`
+> streams the same bundle with a progress bar, a timeout, and resumable retries. If it stalls at
+> 0%, the path is network-level: drop any VPN/proxy or switch networks (it pulls from AWS S3
+> `us-west-2`).
 
 ## 3. your key
 
